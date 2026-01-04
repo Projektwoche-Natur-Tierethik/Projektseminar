@@ -1,0 +1,27 @@
+import type { Metadata } from "next";
+import { Fraunces, Manrope } from "next/font/google";
+import "./globals.css";
+import SiteShell from "@/src/components/layout/SiteShell";
+
+const sans = Manrope({ subsets: ["latin"], variable: "--font-manrope" });
+const serif = Fraunces({ subsets: ["latin"], variable: "--font-fraunces" });
+
+export const metadata: Metadata = {
+  title: "Ethik-Dialog | Umwelt- und Tierethik",
+  description:
+    "Diskursplattform fuer Umwelt- und Tierethik im universitaeren Kontext."
+};
+
+export default function RootLayout({
+  children
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="de" className={`${sans.variable} ${serif.variable}`}>
+      <body>
+        <SiteShell>{children}</SiteShell>
+      </body>
+    </html>
+  );
+}

@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: 38 38% 96%;
+  --color-surface: 0 0% 100%;
+  --color-ink: 210 20% 14%;
+  --color-muted: 214 16% 45%;
+  --color-accent: 158 40% 35%;
+  --color-accent-2: 28 70% 55%;
+  --color-border: 214 22% 88%;
+  --color-ring: 158 60% 40%;
+  --radius: 14px;
+  --shadow: 0 10px 30px rgba(20, 20, 20, 0.08);
+  --font-sans: var(--font-manrope);
+  --font-serif: var(--font-fraunces);
+}
+
+* {
+  border-color: hsl(var(--color-border) / 1);
+}
+
+body {
+  font-family: var(--font-sans);
+  color: hsl(var(--color-ink) / 1);
+  background-color: hsl(var(--color-bg) / 1);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-serif);
+}
+
+.site-bg {
+  background-image:
+    radial-gradient(
+      900px 500px at 10% -10%,
+      hsl(var(--color-accent) / 0.14),
+      transparent 60%
+    ),
+    radial-gradient(
+      700px 500px at 90% 0%,
+      hsl(var(--color-accent-2) / 0.16),
+      transparent 60%
+    );
+}

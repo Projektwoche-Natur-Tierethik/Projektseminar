@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Discussion {
+  id             String           @id @default(cuid())
+  code           String           @unique
+  question       String
+  createdAt      DateTime         @default(now())
+  participants   Participant[]
+  valueSelections ValueSelection[]
+  stepResponses  StepResponse[]
+}
+
+model Participant {
+  id              String          @id @default(cuid())
+  name            String
+  isHost          Boolean         @default(false)
+  discussionId    String
+  discussion      Discussion      @relation(fields: [discussionId], references: [id])
+  valueSelections ValueSelection[]
+  stepResponses   StepResponse[]
+
+  @@unique([discussionId, name])
+}
+
+model ValueSelection {
+  id            String      @id @default(cuid())
+  value         String
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id])
+  discussionId  String
+  discussion    Discussion  @relation(fields: [discussionId], references: [id])
+
+  @@unique([participantId, value])
+}
+
+model StepResponse {
+  id            String      @id @default(cuid())
+  step          Int
+  response      String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id])
+  discussionId  String
+  discussion    Discussion  @relation(fields: [discussionId], references: [id])
+
+  @@unique([participantId, step])
+}
