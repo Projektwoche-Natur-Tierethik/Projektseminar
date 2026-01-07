@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { buttonStyles } from "@/src/components/ui/Button";
+import ThemeToggle from "@/src/components/ui/ThemeToggle";
 
 const navItems = [
   { label: "Begriffsklaerung", href: "/begriffsklaerung" },
@@ -12,7 +13,7 @@ const navItems = [
 export default function Header() {
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-surface/80 backdrop-blur">
-      <div className="container mx-auto flex items-center justify-between py-4">
+      <div className="container mx-auto flex items-center justify-between gap-4 py-4">
         <Link href="/" className="text-lg font-semibold tracking-tight">
           Ethik-Dialog
         </Link>
@@ -27,12 +28,15 @@ export default function Header() {
             </Link>
           ))}
         </nav>
-        <Link
-          href="/diskussion/erstellen"
-          className={buttonStyles({ variant: "primary", size: "sm" })}
-        >
-          Diskussion starten
-        </Link>
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+          <Link
+            href="/diskussion/erstellen"
+            className={buttonStyles({ variant: "primary", size: "sm" })}
+          >
+            Diskussion starten
+          </Link>
+        </div>
       </div>
       <div className="container mx-auto flex gap-3 overflow-x-auto pb-3 text-xs md:hidden">
         {navItems.map((item) => (

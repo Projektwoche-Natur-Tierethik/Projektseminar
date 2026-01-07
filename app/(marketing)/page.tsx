@@ -5,12 +5,12 @@ import { buttonStyles } from "@/src/components/ui/Button";
 export const metadata = {
   title: "Ethik-Dialog | Start",
   description:
-    "Plattform fuer Umwelt- und Tierethik mit Diskussionsassistent und Ressourcen."
+    "Plattform für Umwelt- und Tierethik mit Diskussionsassistent und Ressourcen."
 };
 
 const highlights = [
   {
-    title: "Begriffsklaerung",
+    title: "Begriffsklärung",
     text: "Schnell nachschlagen, wenn zentrale ethische Begriffe in der Diskussion auftauchen."
   },
   {
@@ -32,10 +32,10 @@ export default function HomePage() {
             Seminar Anwendungsethik
           </p>
           <h1 className="text-4xl font-semibold text-ink md:text-5xl">
-            Diskursraum fuer Umwelt- und Tierethik
+            Diskursraum für Umwelt- und Tierethik
           </h1>
           <p className="text-lg text-muted">
-            Eine Plattform, die universitaere Diskussionen strukturiert,
+            Eine Plattform, die universitäre Diskussionen strukturiert,
             Wissensbasis bereitstellt und Ethik im Dialog erlebbar macht.
           </p>
           <div className="flex flex-wrap gap-3">
@@ -49,7 +49,7 @@ export default function HomePage() {
               href="/begriffsklaerung"
               className={buttonStyles({ variant: "outline", size: "lg" })}
             >
-              Begriffsklaerung
+              Begriffsklärung
             </Link>
           </div>
         </div>
@@ -59,7 +59,7 @@ export default function HomePage() {
           </CardHeader>
           <CardContent className="space-y-4 text-sm text-muted">
             <p>
-              Wie koennen Tierhaltung und Umweltschutz im universitaeren Kontext
+              Wie können Tierhaltung und Umweltschutz im universitären Kontext
               verantwortungsvoll gestaltet werden?
             </p>
             <div className="rounded-xl border border-border bg-bg px-4 py-3 text-ink">
