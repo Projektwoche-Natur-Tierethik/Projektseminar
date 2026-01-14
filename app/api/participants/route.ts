@@ -61,6 +61,9 @@ export async function PUT(request: Request) {
       ...(typeof body.continueButton === "boolean"
         ? { continueButton: body.continueButton }
         : null),
+      ...(typeof body.moveOnButton === "boolean"
+        ? { moveOnButton: body.moveOnButton }
+        : null),
       ...(typeof body.admin === "boolean" ? { admin: body.admin } : null),
       ...(body.mainConclusion ? { mainConclusion: String(body.mainConclusion).trim() } : null)
     }

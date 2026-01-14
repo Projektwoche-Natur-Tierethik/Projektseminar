@@ -1,62 +1,3 @@
-/*
-  Warnings:
-
-  - You are about to drop the `CommentLike` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `Discussion` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `DiscussionQuestion` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `Participant` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `QuestionComment` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `QuestionSkipVote` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `StepResponse` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `StepStatus` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `ValueSelection` table. If the table is not empty, all the data it contains will be lost.
-
-*/
--- DropTable
-PRAGMA foreign_keys=off;
-DROP TABLE "CommentLike";
-PRAGMA foreign_keys=on;
-
--- DropTable
-PRAGMA foreign_keys=off;
-DROP TABLE "Discussion";
-PRAGMA foreign_keys=on;
-
--- DropTable
-PRAGMA foreign_keys=off;
-DROP TABLE "DiscussionQuestion";
-PRAGMA foreign_keys=on;
-
--- DropTable
-PRAGMA foreign_keys=off;
-DROP TABLE "Participant";
-PRAGMA foreign_keys=on;
-
--- DropTable
-PRAGMA foreign_keys=off;
-DROP TABLE "QuestionComment";
-PRAGMA foreign_keys=on;
-
--- DropTable
-PRAGMA foreign_keys=off;
-DROP TABLE "QuestionSkipVote";
-PRAGMA foreign_keys=on;
-
--- DropTable
-PRAGMA foreign_keys=off;
-DROP TABLE "StepResponse";
-PRAGMA foreign_keys=on;
-
--- DropTable
-PRAGMA foreign_keys=off;
-DROP TABLE "StepStatus";
-PRAGMA foreign_keys=on;
-
--- DropTable
-PRAGMA foreign_keys=off;
-DROP TABLE "ValueSelection";
-PRAGMA foreign_keys=on;
-
 -- CreateTable
 CREATE TABLE "users" (
     "user_id" TEXT NOT NULL PRIMARY KEY,
@@ -72,6 +13,8 @@ CREATE TABLE "discussion" (
     "discussion_theme" TEXT NOT NULL,
     "inclusion_problem_part_of" BOOLEAN NOT NULL DEFAULT false,
     "norms_part_of" BOOLEAN NOT NULL DEFAULT false,
+    "values_selection_count" INTEGER NOT NULL DEFAULT 10,
+    "questions_per_participant" INTEGER NOT NULL DEFAULT 5,
     "step" INTEGER NOT NULL DEFAULT 0
 );
 

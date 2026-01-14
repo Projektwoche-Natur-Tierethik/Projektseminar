@@ -50,6 +50,7 @@ model Participant {
   discussionId   String                        @map("d_id")
   mainConclusion String?                       @map("main_conclusion")
   continueButton Boolean                       @default(false) @map("continue_button")
+  moveOnButton   Boolean                       @default(false) @map("move_on_button")
   admin          Boolean                       @default(false)
   user           User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
   discussion     Discussion                    @relation(fields: [discussionId], references: [id], onDelete: Cascade)
