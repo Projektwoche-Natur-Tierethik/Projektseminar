@@ -36,7 +36,9 @@ export default function JoinDiscussionPage() {
       setError("Code oder Name ungueltig.");
       return;
     }
-    router.push(`/diskussion/lobby/${code}?name=${encodeURIComponent(name)}`);
+    router.push(
+      `/diskussion/lobby/${code}?name=${encodeURIComponent(name)}`
+    );
   }
 
   return (

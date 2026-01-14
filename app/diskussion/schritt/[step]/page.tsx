@@ -5,11 +5,18 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import ValueSelector from "@/src/components/discussion/ValueSelector";
 import StepForm from "@/src/components/discussion/StepForm";
+import QuestionsForm from "@/src/components/discussion/QuestionsForm";
 import { discussionSteps } from "@/src/config/discussion";
-import { selectionCount, valuesList } from "@/src/config/values";
+import { valuesList } from "@/src/config/values";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/Card";
 import { Button, buttonStyles } from "@/src/components/ui/Button";
 import { Stepper } from "@/src/components/ui/Stepper";
+import {
+  defaultDiscussionSettings,
+  getEnabledSteps,
+  isStepEnabled,
+  normalizeDiscussionSettings
+} from "@/src/lib/discussion-settings";
 import type { AggregatedValue } from "@/src/types/discussion";
 
 export default function DiscussionStepPage() {
@@ -19,10 +26,17 @@ export default function DiscussionStepPage() {
   const code = searchParams.get("code") ?? "";
   const name = searchParams.get("name") ?? "";
 
+  const [settings, setSettings] = useState(defaultDiscussionSettings);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const enabledSteps = useMemo(() => getEnabledSteps(settings), [settings]);
+
   const stepData = discussionSteps.find((item) => item.step === step);
   const stepLabels = useMemo(
-    () => discussionSteps.map((item) => ({ label: item.title, step: item.step })),
-    []
+    () =>
+      discussionSteps
+        .filter((item) => isStepEnabled(item.step, settings))
+        .map((item) => ({ label: item.title, step: item.step })),
+    [settings]
   );
 
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
@@ -33,6 +47,19 @@ export default function DiscussionStepPage() {
   const [statusMessage, setStatusMessage] = useState("");
   const [isReady, setIsReady] = useState(false);
   const [readyUpdatedAt, setReadyUpdatedAt] = useState<string | null>(null);
+  const valuesCount = settings.valuesCount;
+  const questionsCount = settings.questionsCount;
+
+  const currentEnabledStep = useMemo(() => {
+    if (currentStep === null) return null;
+    if (currentStep <= 0) return 0;
+    const available = enabledSteps.filter((item) => item <= currentStep);
+    return available.length > 0 ? available[available.length - 1] : enabledSteps[0] ?? currentStep;
+  }, [currentStep, enabledSteps]);
+  const nextEnabledStep = useMemo(
+    () => enabledSteps.find((item) => item > step) ?? null,
+    [enabledSteps, step]
+  );
 
   useEffect(() => {
     if (step !== 1 || !code) return;
@@ -42,6 +69,25 @@ export default function DiscussionStepPage() {
       .then((data) => setTopValues(data.topValues ?? []))
       .catch(() => setTopValues([]));
   }, [step, code]);
+
+  useEffect(() => {
+    if (!code) return;
+    let isMounted = true;
+    fetch(`/api/discussions?code=${encodeURIComponent(code)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!isMounted) return;
+        setSettings(normalizeDiscussionSettings(data.discussion));
+        setSettingsLoaded(true);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setSettingsLoaded(true);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [code]);
 
   useEffect(() => {
     if (!code) return;
@@ -96,6 +142,31 @@ export default function DiscussionStepPage() {
     );
   }
 
+  if (!isStepEnabled(step, settings)) {
+    return (
+      <div className="container mx-auto space-y-4 pt-12">
+        <p className="text-muted">Dieser Schritt ist deaktiviert.</p>
+        {nextEnabledStep ? (
+          <Link
+            href={`/diskussion/schritt/${nextEnabledStep}?code=${code}&name=${encodeURIComponent(
+              name
+            )}`}
+            className={buttonStyles({ variant: "primary", size: "md" })}
+          >
+            Zum naechsten aktiven Schritt
+          </Link>
+        ) : (
+          <Link
+            href={`/diskussion/lobby/${code}?name=${encodeURIComponent(name)}`}
+            className={buttonStyles({ variant: "outline", size: "md" })}
+          >
+            Zurueck zur Lobby
+          </Link>
+        )}
+      </div>
+    );
+  }
+
   async function handleValuesSubmit() {
     setLoading(true);
     setStatusMessage("");
@@ -120,6 +191,12 @@ export default function DiscussionStepPage() {
     });
 
     setStatusMessage("Antwort gespeichert. Warte auf die Freigabe des naechsten Schritts.");
+  }
+
+  async function handleQuestionsSubmit(questions: string[]) {
+    const cleaned = questions.map((item) => item.trim()).filter(Boolean);
+    const response = cleaned.map((item, index) => `${index + 1}. ${item}`).join("\n");
+    await handleStepSubmit(response);
   }
 
   async function handleReadyToggle(nextReady: boolean) {
@@ -150,6 +227,14 @@ export default function DiscussionStepPage() {
     );
   }
 
+  if (!settingsLoaded) {
+    return (
+      <div className="container mx-auto pt-12">
+        <p className="text-muted">Einstellungen werden geladen...</p>
+      </div>
+    );
+  }
+
   if (currentStep === null) {
     return (
       <div className="container mx-auto pt-12">
@@ -159,7 +244,7 @@ export default function DiscussionStepPage() {
   }
 
   if (!isHost) {
-    if (currentStep === 0) {
+    if (currentEnabledStep === 0) {
       return (
         <div className="container mx-auto space-y-4 pt-12">
           <p className="text-muted">
@@ -175,14 +260,14 @@ export default function DiscussionStepPage() {
       );
     }
 
-    if (currentStep !== null && currentStep < step) {
+    if (currentEnabledStep !== null && currentEnabledStep < step) {
       return (
         <div className="container mx-auto space-y-4 pt-12">
           <p className="text-muted">
             Dieser Schritt ist noch nicht freigegeben.
           </p>
           <Link
-            href={`/diskussion/schritt/${currentStep}?code=${code}&name=${encodeURIComponent(
+            href={`/diskussion/schritt/${currentEnabledStep}?code=${code}&name=${encodeURIComponent(
               name
             )}`}
             className={buttonStyles({ variant: "primary", size: "md" })}
@@ -210,6 +295,11 @@ export default function DiscussionStepPage() {
     }
   }
 
+  const stepPrompt =
+    step === 4
+      ? `Stelle bis zu ${questionsCount} Fragen, die du gerne diskutieren moechtest.`
+      : stepData.prompt;
+
   return (
     <div className="container mx-auto space-y-8 pb-20 pt-12">
       <Stepper steps={stepLabels} current={step} />
@@ -218,16 +308,19 @@ export default function DiscussionStepPage() {
         <h1 className="text-3xl font-semibold">
           Schritt {step}: {stepData.title}
         </h1>
-        <p className="text-muted">{stepData.prompt}</p>
+        <p className="text-muted">{stepPrompt}</p>
       </header>
-      {!isHost && currentStep !== null && currentStep > step && currentStep <= 5 && (
+      {!isHost &&
+        currentEnabledStep !== null &&
+        currentEnabledStep > step &&
+        currentEnabledStep <= 5 && (
         <Card>
           <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
             <p className="text-sm text-muted">
               Der naechste Schritt ist freigeschaltet.
             </p>
           <Link
-            href={`/diskussion/schritt/${currentStep}?code=${code}&name=${encodeURIComponent(
+            href={`/diskussion/schritt/${currentEnabledStep}?code=${code}&name=${encodeURIComponent(
               name
             )}`}
             className={buttonStyles({ variant: "primary", size: "sm" })}
@@ -246,18 +339,18 @@ export default function DiscussionStepPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted">
-                Waehle {selectionCount} Werte aus, die dir am wichtigsten sind.
+                Waehle {valuesCount} Werte aus, die dir am wichtigsten sind.
               </p>
               <ValueSelector
                 values={valuesList}
                 selected={selectedValues}
-                max={selectionCount}
+                max={valuesCount}
                 onChange={setSelectedValues}
               />
               <div className="flex flex-wrap gap-2">
                 <Button
                   onClick={handleValuesSubmit}
-                  disabled={selectedValues.length !== selectionCount || loading}
+                  disabled={selectedValues.length !== valuesCount || loading}
                 >
                   Werte speichern
                 </Button>
@@ -265,7 +358,7 @@ export default function DiscussionStepPage() {
                   <Button
                     onClick={() => handleReadyToggle(!isReady)}
                     variant={isReady ? "outline" : "primary"}
-                    disabled={selectedValues.length !== selectionCount}
+                    disabled={selectedValues.length !== valuesCount}
                   >
                     {isReady ? "Nicht bereit" : "Bereit melden"}
                   </Button>
@@ -319,11 +412,18 @@ export default function DiscussionStepPage() {
             <CardTitle>Deine Antwort</CardTitle>
           </CardHeader>
           <CardContent>
-            <StepForm
-              prompt={stepData.prompt}
-              helper={stepData.helper}
-              onSubmit={handleStepSubmit}
-            />
+            {step === 4 ? (
+              <QuestionsForm
+                maxQuestions={questionsCount}
+                onSubmit={handleQuestionsSubmit}
+              />
+            ) : (
+              <StepForm
+                prompt={stepPrompt}
+                helper={stepData.helper}
+                onSubmit={handleStepSubmit}
+              />
+            )}
             {!isHost && (
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button

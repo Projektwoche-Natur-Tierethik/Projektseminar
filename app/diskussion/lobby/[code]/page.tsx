@@ -6,6 +6,7 @@ import CopyJoinLinkButton from "@/src/components/discussion/CopyJoinLinkButton";
 import JoinQrCode from "@/src/components/discussion/JoinQrCode";
 import { buttonStyles } from "@/src/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/Card";
+import { normalizeDiscussionSettings } from "@/src/lib/discussion-settings";
 
 type LobbyPageProps = {
   params: { code: string };
@@ -13,8 +14,9 @@ type LobbyPageProps = {
 };
 
 export default async function LobbyPage({ params, searchParams }: LobbyPageProps) {
+  const code = Number(params.code);
   const discussion = await prisma.discussion.findUnique({
-    where: { code: params.code },
+    where: { code },
     include: { participants: true }
   });
 
@@ -27,6 +29,12 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
   }
 
   const name = searchParams?.name ?? "";
+  const settings = normalizeDiscussionSettings({
+    normsPartOf: discussion.normsPartOf,
+    inclusionProblemPartOf: discussion.inclusionProblemPartOf,
+    valuesSelectionCount: discussion.valuesSelectionCount,
+    questionsPerParticipant: discussion.questionsPerParticipant
+  });
 
   const currentStep = discussion.currentStep;
   const participant = discussion.participants.find((item) => item.name === name);
@@ -168,7 +176,12 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
                 </div>
               </div>
             )}
-            <HostControls code={discussion.code} name={name} initialStep={currentStep} />
+            <HostControls
+              code={discussion.code}
+              name={name}
+              initialStep={currentStep}
+              settings={settings}
+            />
           </CardContent>
         </Card>
       )}

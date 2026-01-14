@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "CHOKIDAR_USEPOLLING=1 WATCHPACK_POLLING=true next dev",
+    "dev": "CHOKIDAR_USEPOLLING=1 WATCHPACK_POLLING=true prisma migrate dev --name dev && next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

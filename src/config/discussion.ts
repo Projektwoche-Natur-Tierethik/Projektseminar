@@ -24,7 +24,7 @@ export const discussionSteps: DiscussionStep[] = [
     step: 4,
     title: "Diskussion",
     prompt:
-      "Was ist Dir wichtig? Stelle bis zu 5 Fragen, die du gerne diskutieren möchtest."
+      "Was ist Dir wichtig? Formuliere Fragen, die du gerne diskutieren moechtest."
   },
   {
     step: 5,

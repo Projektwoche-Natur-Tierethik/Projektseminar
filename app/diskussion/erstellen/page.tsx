@@ -6,18 +6,45 @@ import { Input } from "@/src/components/ui/Input";
 import { Textarea } from "@/src/components/ui/Textarea";
 import { Button } from "@/src/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/Card";
+import { valuesList } from "@/src/config/values";
+import { defaultDiscussionSettings } from "@/src/lib/discussion-settings";
 
 export default function CreateDiscussionPage() {
   const router = useRouter();
   const [question, setQuestion] = useState("");
   const [hostName, setHostName] = useState("");
   const [error, setError] = useState("");
+  const [normsEnabled, setNormsEnabled] = useState(
+    defaultDiscussionSettings.normsEnabled
+  );
+  const [inclusionEnabled, setInclusionEnabled] = useState(
+    defaultDiscussionSettings.inclusionEnabled
+  );
+  const [valuesCount, setValuesCount] = useState(
+    defaultDiscussionSettings.valuesCount
+  );
+  const [questionsCount, setQuestionsCount] = useState(
+    defaultDiscussionSettings.questionsCount
+  );
 
   async function handleCreate() {
     setError("");
+    const normalizedValuesCount = Number.isFinite(valuesCount)
+      ? Math.min(Math.max(valuesCount, 1), valuesList.length)
+      : defaultDiscussionSettings.valuesCount;
+    const normalizedQuestionsCount = Number.isFinite(questionsCount)
+      ? Math.min(Math.max(questionsCount, 1), 20)
+      : defaultDiscussionSettings.questionsCount;
     const response = await fetch("/api/diskussion/create", {
       method: "POST",
-      body: JSON.stringify({ question, hostName }),
+      body: JSON.stringify({
+        question,
+        hostName,
+        normsPartOf: normsEnabled,
+        inclusionProblemPartOf: inclusionEnabled,
+        selectionCount: normalizedValuesCount,
+        questionsPerParticipant: normalizedQuestionsCount
+      }),
       headers: { "Content-Type": "application/json" }
     });
 
@@ -60,6 +87,61 @@ export default function CreateDiscussionPage() {
             Diskussion erstellen
           </Button>
           {error && <p className="text-sm text-accent2">{error}</p>}
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-2xl">
+        <CardHeader>
+          <CardTitle>Ablauf anpassen</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm text-muted">
+          <p>Lege fest, welche Schritte aktiv sind und wie viele Fragen erlaubt sind.</p>
+          <div className="space-y-3 text-ink">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-primary"
+                checked={normsEnabled}
+                onChange={(event) => setNormsEnabled(event.target.checked)}
+              />
+              Schritt 2 (Normen) aktiv
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-primary"
+                checked={inclusionEnabled}
+                onChange={(event) => setInclusionEnabled(event.target.checked)}
+              />
+              Schritt 3 (Inklusionsproblem) aktiv
+            </label>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-2 text-sm text-ink">
+              <span>Anzahl auswaehlbarer Werte (Schritt 1)</span>
+              <Input
+                type="number"
+                min={1}
+                max={valuesList.length}
+                value={valuesCount}
+                onChange={(event) => setValuesCount(Number(event.target.value))}
+              />
+              <span className="text-xs text-muted">
+                Maximal {valuesList.length} Werte.
+              </span>
+            </label>
+            <label className="space-y-2 text-sm text-ink">
+              <span>Diskussionsfragen pro Person (Schritt 4)</span>
+              <Input
+                type="number"
+                min={1}
+                max={20}
+                value={questionsCount}
+                onChange={(event) => setQuestionsCount(Number(event.target.value))}
+              />
+              <span className="text-xs text-muted">Maximal 20 Fragen.</span>
+            </label>
+          </div>
         </CardContent>
       </Card>
     </div>

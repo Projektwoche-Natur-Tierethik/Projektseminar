@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/src/lib/prisma";
+import { getOrCreateUserByName, getOrCreateParticipant } from "@/src/lib/db-helpers";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const code = String(body.code ?? "").trim().toUpperCase();
+  const code = Number(String(body.code ?? "").trim());
   const name = String(body.name ?? "").trim();
 
   if (!code || !name) {
@@ -15,15 +16,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const existing = await prisma.participant.findUnique({
-    where: { discussionId_name: { discussionId: discussion.id, name } }
-  });
-
-  if (!existing) {
-    await prisma.participant.create({
-      data: { name, discussionId: discussion.id }
-    });
-  }
+  const user = await getOrCreateUserByName(name);
+  await getOrCreateParticipant({ discussionId: discussion.id, userId: user.id });
 
   return NextResponse.json({ ok: true });
 }

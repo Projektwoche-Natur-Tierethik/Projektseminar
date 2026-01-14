@@ -3,24 +3,36 @@ import { prisma } from "@/src/lib/prisma";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const code = String(searchParams.get("code") ?? "").trim().toUpperCase();
+  const code = Number(String(searchParams.get("code") ?? "").trim());
 
   const discussion = await prisma.discussion.findUnique({
-    where: { code },
-    include: { valueSelections: true }
+    where: { code }
   });
 
   if (!discussion) {
     return NextResponse.json({ topValues: [] });
   }
 
-  const counts = discussion.valueSelections.reduce((acc, item) => {
-    acc[item.value] = (acc[item.value] ?? 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  const counts = await prisma.userValue.groupBy({
+    by: ["valueId"],
+    where: { discussionId: discussion.id },
+    _count: { valueId: true }
+  });
 
-  const topValues = Object.entries(counts)
-    .map(([value, count]) => ({ value, count }))
+  const values = await prisma.value.findMany({
+    where: { id: { in: counts.map((item) => item.valueId) } }
+  });
+
+  const valueMap = values.reduce((acc, item) => {
+    acc[item.id] = item.value;
+    return acc;
+  }, {} as Record<string, string>);
+
+  const topValues = counts
+    .map((item) => ({
+      value: valueMap[item.valueId] ?? item.valueId,
+      count: item._count.valueId
+    }))
     .sort((a, b) => b.count - a.count);
 
   return NextResponse.json({ topValues });
@@ -28,7 +40,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const code = String(body.code ?? "").trim().toUpperCase();
+  const code = Number(String(body.code ?? "").trim());
   const name = String(body.name ?? "").trim();
   const values = Array.isArray(body.values) ? body.values : [];
 
@@ -38,30 +50,39 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid data" }, { status: 400 });
   }
 
-  let participant = await prisma.participant.findUnique({
-    where: { discussionId_name: { discussionId: discussion.id, name } }
-  });
-
-  if (!participant) {
-    participant = await prisma.participant.create({
-      data: { name, discussionId: discussion.id }
-    });
+  const user = await prisma.user.findUnique({ where: { name } });
+  if (!user) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  if (discussion.currentStep < 1 && !participant.isHost) {
+  const participant = await prisma.participant.findUnique({
+    where: { userId_discussionId: { userId: user.id, discussionId: discussion.id } }
+  });
+
+  if (discussion.step < 1 && !participant?.admin) {
     return NextResponse.json({ error: "Not started" }, { status: 403 });
   }
 
-  await prisma.valueSelection.deleteMany({
-    where: { participantId: participant.id }
+  await prisma.userValue.deleteMany({
+    where: { discussionId: discussion.id, userId: user.id }
   });
 
   if (values.length > 0) {
-    await prisma.valueSelection.createMany({
-      data: values.map((value: string) => ({
-        value,
-        participantId: participant.id,
-        discussionId: discussion.id
+    const valueRecords = await Promise.all(
+      values.map(async (valueLabel: string) => {
+        const existing = await prisma.value.findUnique({ where: { value: valueLabel } });
+        if (existing) {
+          return existing;
+        }
+        return prisma.value.create({ data: { value: valueLabel } });
+      })
+    );
+
+    await prisma.userValue.createMany({
+      data: valueRecords.map((valueRecord) => ({
+        discussionId: discussion.id,
+        valueId: valueRecord.id,
+        userId: user.id
       }))
     });
   }
