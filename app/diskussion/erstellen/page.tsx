@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Input } from "@/src/components/ui/Input";
 import { Textarea } from "@/src/components/ui/Textarea";
 import { Button } from "@/src/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/Card";
 
 export default function CreateDiscussionPage() {
+  const router = useRouter();
   const [question, setQuestion] = useState("");
   const [hostName, setHostName] = useState("");
-  const [code, setCode] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   async function handleCreate() {
@@ -25,7 +26,9 @@ export default function CreateDiscussionPage() {
       return;
     }
     const data = await response.json();
-    setCode(data.code);
+    router.push(
+      `/diskussion/lobby/${data.code}?name=${encodeURIComponent(hostName)}`
+    );
   }
 
   return (
@@ -33,7 +36,7 @@ export default function CreateDiscussionPage() {
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold">Diskussion erstellen</h1>
         <p className="text-muted">
-          Formuliere die Fragestellung und erhalte einen Zugangscode.
+          Formuliere die Fragestellung und lege die Leitung fest.
         </p>
       </header>
 
@@ -43,7 +46,7 @@ export default function CreateDiscussionPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <Input
-            placeholder="Dein Name (optional)"
+            placeholder="Name der Leitung"
             value={hostName}
             onChange={(event) => setHostName(event.target.value)}
           />
@@ -53,19 +56,10 @@ export default function CreateDiscussionPage() {
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
           />
-          <Button onClick={handleCreate} disabled={!question.trim()}>
+          <Button onClick={handleCreate} disabled={!question.trim() || !hostName.trim()}>
             Diskussion erstellen
           </Button>
           {error && <p className="text-sm text-accent2">{error}</p>}
-          {code && (
-            <div className="rounded-xl border border-border bg-bg p-4 text-sm">
-              <p className="text-muted">Diskussionscode</p>
-              <p className="text-2xl font-semibold text-ink">{code}</p>
-              <p className="mt-2 text-muted">
-                Teile diesen Code mit den Teilnehmenden.
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>

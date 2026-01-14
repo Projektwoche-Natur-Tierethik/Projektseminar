@@ -1,22 +1,21 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import ValueSelector from "@/src/components/discussion/ValueSelector";
 import StepForm from "@/src/components/discussion/StepForm";
 import { discussionSteps } from "@/src/config/discussion";
 import { selectionCount, valuesList } from "@/src/config/values";
 import { timerDefaults } from "@/src/config/timers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/Card";
-import { Button } from "@/src/components/ui/Button";
+import { Button, buttonStyles } from "@/src/components/ui/Button";
 import { Stepper } from "@/src/components/ui/Stepper";
 import type { AggregatedValue } from "@/src/types/discussion";
 
 export default function DiscussionStepPage() {
   const params = useParams();
   const searchParams = useSearchParams();
-  const router = useRouter();
-
   const step = Number(params.step);
   const code = searchParams.get("code") ?? "";
   const name = searchParams.get("name") ?? "";
@@ -30,6 +29,11 @@ export default function DiscussionStepPage() {
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
   const [topValues, setTopValues] = useState<AggregatedValue[]>([]);
   const [loading, setLoading] = useState(false);
+  const [currentStep, setCurrentStep] = useState<number | null>(null);
+  const [isHost, setIsHost] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
+  const [isReady, setIsReady] = useState(false);
+  const [readyUpdatedAt, setReadyUpdatedAt] = useState<string | null>(null);
 
   useEffect(() => {
     if (step !== 1 || !code) return;
@@ -39,6 +43,51 @@ export default function DiscussionStepPage() {
       .then((data) => setTopValues(data.topValues ?? []))
       .catch(() => setTopValues([]));
   }, [step, code]);
+
+  useEffect(() => {
+    if (!code) return;
+    let isMounted = true;
+    const fetchStatus = () => {
+      fetch(`/api/diskussion/status?code=${code}&name=${encodeURIComponent(name)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (!isMounted) return;
+          setCurrentStep(Number(data.currentStep ?? 0));
+          setIsHost(Boolean(data.isHost));
+        })
+        .catch(() => {
+          if (!isMounted) return;
+          setCurrentStep(0);
+          setIsHost(false);
+        });
+    };
+
+    fetchStatus();
+    const interval = window.setInterval(fetchStatus, 5000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+    };
+  }, [code, name]);
+
+  useEffect(() => {
+    if (!code || !name || !step) return;
+    fetch(
+      `/api/diskussion/ready?code=${code}&name=${encodeURIComponent(
+        name
+      )}&step=${step}`
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        setIsReady(Boolean(data.ready));
+        setReadyUpdatedAt(data.updatedAt ?? null);
+      })
+      .catch(() => {
+        setIsReady(false);
+        setReadyUpdatedAt(null);
+      });
+  }, [code, name, step]);
 
   if (!stepData) {
     return (
@@ -50,6 +99,7 @@ export default function DiscussionStepPage() {
 
   async function handleValuesSubmit() {
     setLoading(true);
+    setStatusMessage("");
     await fetch("/api/diskussion/werte", {
       method: "POST",
       body: JSON.stringify({ code, name, values: selectedValues }),
@@ -59,25 +109,36 @@ export default function DiscussionStepPage() {
     const data = await response.json();
     setTopValues(data.topValues ?? []);
     setLoading(false);
-    router.push(`/diskussion/schritt/2?code=${code}&name=${encodeURIComponent(name)}`);
+    setStatusMessage("Antwort gespeichert. Warte auf die Freigabe des naechsten Schritts.");
   }
 
   async function handleStepSubmit(value: string) {
+    setStatusMessage("");
     await fetch("/api/diskussion/step", {
       method: "POST",
       body: JSON.stringify({ code, name, step, response: value }),
       headers: { "Content-Type": "application/json" }
     });
 
-    if (step < 5) {
-      router.push(
-        `/diskussion/schritt/${step + 1}?code=${code}&name=${encodeURIComponent(
-          name
-        )}`
-      );
-    } else {
-      router.push(`/diskussion/auswertung/${code}`);
+    setStatusMessage("Antwort gespeichert. Warte auf die Freigabe des naechsten Schritts.");
+  }
+
+  async function handleReadyToggle(nextReady: boolean) {
+    setStatusMessage("");
+    const response = await fetch("/api/diskussion/ready", {
+      method: "POST",
+      body: JSON.stringify({ code, name, step, ready: nextReady }),
+      headers: { "Content-Type": "application/json" }
+    });
+
+    if (!response.ok) {
+      setStatusMessage("Status konnte nicht gespeichert werden.");
+      return;
     }
+
+    const data = await response.json();
+    setIsReady(Boolean(data.ready));
+    setReadyUpdatedAt(data.updatedAt ?? null);
   }
 
   if (!name) {
@@ -88,6 +149,66 @@ export default function DiscussionStepPage() {
         </p>
       </div>
     );
+  }
+
+  if (currentStep === null) {
+    return (
+      <div className="container mx-auto pt-12">
+        <p className="text-muted">Status wird geladen...</p>
+      </div>
+    );
+  }
+
+  if (!isHost) {
+    if (currentStep === 0) {
+      return (
+        <div className="container mx-auto space-y-4 pt-12">
+          <p className="text-muted">
+            Die Diskussion wurde noch nicht gestartet.
+          </p>
+          <Link
+            href={`/diskussion/lobby/${code}?name=${encodeURIComponent(name)}`}
+            className={buttonStyles({ variant: "outline", size: "md" })}
+          >
+            Zurueck zur Lobby
+          </Link>
+        </div>
+      );
+    }
+
+    if (currentStep !== null && currentStep < step) {
+      return (
+        <div className="container mx-auto space-y-4 pt-12">
+          <p className="text-muted">
+            Dieser Schritt ist noch nicht freigegeben.
+          </p>
+          <Link
+            href={`/diskussion/schritt/${currentStep}?code=${code}&name=${encodeURIComponent(
+              name
+            )}`}
+            className={buttonStyles({ variant: "primary", size: "md" })}
+          >
+            Zum aktuellen Schritt
+          </Link>
+        </div>
+      );
+    }
+
+    if (currentStep !== null && currentStep > 5) {
+      return (
+        <div className="container mx-auto space-y-4 pt-12">
+          <p className="text-muted">
+            Die Diskussion ist abgeschlossen. Die Auswertung ist verfuegbar.
+          </p>
+          <Link
+            href={`/diskussion/auswertung/${code}`}
+            className={buttonStyles({ variant: "primary", size: "md" })}
+          >
+            Zur Auswertung
+          </Link>
+        </div>
+      );
+    }
   }
 
   return (
@@ -113,6 +234,23 @@ export default function DiscussionStepPage() {
           Minuten
         </p>
       </header>
+      {!isHost && currentStep !== null && currentStep > step && currentStep <= 5 && (
+        <Card>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+            <p className="text-sm text-muted">
+              Der naechste Schritt ist freigeschaltet.
+            </p>
+            <Link
+              href={`/diskussion/schritt/${currentStep}?code=${code}&name=${encodeURIComponent(
+                name
+              )}`}
+              className={buttonStyles({ variant: "primary", size: "sm" })}
+            >
+              Zum naechsten Schritt
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       {step === 1 ? (
         <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
@@ -130,12 +268,32 @@ export default function DiscussionStepPage() {
                 max={selectionCount}
                 onChange={setSelectedValues}
               />
-              <Button
-                onClick={handleValuesSubmit}
-                disabled={selectedValues.length !== selectionCount || loading}
-              >
-                Werte speichern & weiter
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={handleValuesSubmit}
+                  disabled={selectedValues.length !== selectionCount || loading}
+                >
+                  Werte speichern
+                </Button>
+                {!isHost && (
+                  <Button
+                    onClick={() => handleReadyToggle(!isReady)}
+                    variant={isReady ? "outline" : "primary"}
+                    disabled={selectedValues.length !== selectionCount}
+                  >
+                    {isReady ? "Nicht bereit" : "Bereit melden"}
+                  </Button>
+                )}
+              </div>
+              {statusMessage && (
+                <p className="text-sm text-muted">{statusMessage}</p>
+              )}
+              {readyUpdatedAt && (
+                <p className="text-xs text-muted">
+                  Status zuletzt geaendert:{" "}
+                  {new Date(readyUpdatedAt).toLocaleString("de-DE")}
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -180,6 +338,25 @@ export default function DiscussionStepPage() {
               helper={stepData.helper}
               onSubmit={handleStepSubmit}
             />
+            {!isHost && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  onClick={() => handleReadyToggle(!isReady)}
+                  variant={isReady ? "outline" : "primary"}
+                >
+                  {isReady ? "Nicht bereit" : "Bereit melden"}
+                </Button>
+              </div>
+            )}
+            {statusMessage && (
+              <p className="mt-4 text-sm text-muted">{statusMessage}</p>
+            )}
+            {readyUpdatedAt && (
+              <p className="mt-2 text-xs text-muted">
+                Status zuletzt geaendert:{" "}
+                {new Date(readyUpdatedAt).toLocaleString("de-DE")}
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

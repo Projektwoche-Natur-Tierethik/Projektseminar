@@ -48,6 +48,10 @@ export async function POST(request: Request) {
     });
   }
 
+  if (discussion.currentStep < 1 && !participant.isHost) {
+    return NextResponse.json({ error: "Not started" }, { status: 403 });
+  }
+
   await prisma.valueSelection.deleteMany({
     where: { participantId: participant.id }
   });

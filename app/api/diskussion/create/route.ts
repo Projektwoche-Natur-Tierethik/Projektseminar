@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   const question = String(body.question ?? "").trim();
   const hostName = String(body.hostName ?? "").trim();
 
-  if (!question) {
+  if (!question || !hostName) {
     return NextResponse.json({ error: "Missing question" }, { status: 400 });
   }
 

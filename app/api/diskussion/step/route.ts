@@ -28,6 +28,10 @@ export async function POST(request: Request) {
     });
   }
 
+  if (discussion.currentStep < step && !participant.isHost) {
+    return NextResponse.json({ error: "Step locked" }, { status: 403 });
+  }
+
   await prisma.stepResponse.upsert({
     where: { participantId_step: { participantId: participant.id, step } },
     update: { response },
