@@ -12,7 +12,7 @@ export const discussionSteps: DiscussionStep[] = [
     step: 2,
     title: "Normen bestimmen",
     prompt:
-      "Welche Normen lassen sich aus deinen Werten ableiten? Beziehe dich auf Handlung und Gerechtigkeit."
+      "Welche Normen lassen sich aus deinen Werten ableiten?"
   },
   {
     step: 3,
@@ -22,9 +22,9 @@ export const discussionSteps: DiscussionStep[] = [
   },
   {
     step: 4,
-    title: "Moegliche Umsetzung",
+    title: "Diskussion",
     prompt:
-      "Wie kann die Diskussion praktisch umgesetzt werden? Skizziere Kompromisse oder Massnahmen."
+      "Was ist Dir wichtig? Stelle bis zu 5 Fragen, die du gerne diskutieren möchtest."
   },
   {
     step: 5,

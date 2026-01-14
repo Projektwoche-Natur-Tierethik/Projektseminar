@@ -306,7 +306,7 @@ export default function BegriffsklaerungContent() {
                   </CardHeader>
                   <CardContent className="space-y-4 text-sm text-muted">
                     <p>
-                      Pluraler Diskurs seit Mitte des 20. Jahrhunderts mit Fokus
+                      Diskurs seit Mitte des 20. Jahrhunderts mit Fokus
                       auf dem moralischen Status der Natur und den Grenzen
                       menschlicher Eingriffe.
                     </p>
@@ -336,7 +336,7 @@ export default function BegriffsklaerungContent() {
                   </CardHeader>
                   <CardContent className="space-y-4 text-sm text-muted">
                     <p>
-                      Kontroverser Diskurs seit Ende des 20. Jahrhunderts mit
+                      Diskurs seit Ende des 20. Jahrhunderts mit
                       Fokus auf dem moralischen Status von Tieren.
                     </p>
                     <div className="space-y-2">
@@ -347,7 +347,7 @@ export default function BegriffsklaerungContent() {
                           Rechten und Pflichten.
                         </li>
                         <li>
-                          Anti-Speziesismus: Tierrechte und Wuerde der Kreatur,
+                          Anti-Speziesismus: Tierrechte und Würde der Kreatur,
                           u. a. mit utilitaristischen, mitleidsethischen und
                           rechtenbasierten Ansätzen.
                         </li>
@@ -402,9 +402,8 @@ export default function BegriffsklaerungContent() {
                   <CardTitle>Wer hat moralischen Selbstwert?</CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm text-muted">
-                  Beim Inklusionsproblem geht es darum, die Menge der Wesen zu bestimmen,
-                  die um ihrer selbst willen moralisch zu beruecksichtigen sind. Diese
-                  erheben den Anspruch, nicht rein als Mittel fuer beliebige Zwecke
+                  Eine der zentralen Fragestellungen der Umwelt- und Tierethik ist die Bestimmung derjenigen Wesen, die um ihrer selbst willen moralisch zu berücksichtigen sind. Diese
+                  erheben den Anspruch, nicht rein als Mittel für beliebige Zwecke
                   missbraucht zu werden.
                 </CardContent>
               </Card>

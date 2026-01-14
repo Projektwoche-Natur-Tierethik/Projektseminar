@@ -7,7 +7,6 @@ import ValueSelector from "@/src/components/discussion/ValueSelector";
 import StepForm from "@/src/components/discussion/StepForm";
 import { discussionSteps } from "@/src/config/discussion";
 import { selectionCount, valuesList } from "@/src/config/values";
-import { timerDefaults } from "@/src/config/timers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/Card";
 import { Button, buttonStyles } from "@/src/components/ui/Button";
 import { Stepper } from "@/src/components/ui/Stepper";
@@ -220,19 +219,6 @@ export default function DiscussionStepPage() {
           Schritt {step}: {stepData.title}
         </h1>
         <p className="text-muted">{stepData.prompt}</p>
-        <p className="text-xs text-muted">
-          Timer-Default:{" "}
-          {step === 1
-            ? timerDefaults.step1Minutes
-            : step === 2
-              ? timerDefaults.step2Minutes
-              : step === 3
-                ? timerDefaults.step3Minutes
-                : step === 4
-                  ? timerDefaults.step4Minutes
-                  : timerDefaults.step5Minutes}{" "}
-          Minuten
-        </p>
       </header>
       {!isHost && currentStep !== null && currentStep > step && currentStep <= 5 && (
         <Card>
@@ -240,14 +226,14 @@ export default function DiscussionStepPage() {
             <p className="text-sm text-muted">
               Der naechste Schritt ist freigeschaltet.
             </p>
-            <Link
-              href={`/diskussion/schritt/${currentStep}?code=${code}&name=${encodeURIComponent(
-                name
-              )}`}
-              className={buttonStyles({ variant: "primary", size: "sm" })}
-            >
-              Zum naechsten Schritt
-            </Link>
+          <Link
+            href={`/diskussion/schritt/${currentStep}?code=${code}&name=${encodeURIComponent(
+              name
+            )}`}
+            className={buttonStyles({ variant: "primary", size: "sm" })}
+          >
+            Zum naechsten Schritt
+          </Link>
           </CardContent>
         </Card>
       )}

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { prisma } from "@/src/lib/prisma";
 import HostControls from "@/src/components/discussion/HostControls";
 import CopyCodeButton from "@/src/components/discussion/CopyCodeButton";
+import CopyJoinLinkButton from "@/src/components/discussion/CopyJoinLinkButton";
+import JoinQrCode from "@/src/components/discussion/JoinQrCode";
 import { buttonStyles } from "@/src/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/Card";
 
@@ -52,19 +54,43 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
     <div className="container mx-auto space-y-8 pb-20 pt-12">
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold">Lobby</h1>
-        <div className="flex flex-wrap items-center gap-3">
-          <p className="text-muted">Diskussionscode: {discussion.code}</p>
-          <CopyCodeButton code={discussion.code} />
-        </div>
-        <p className="text-sm text-muted">
-          Aktueller Schritt:{" "}
-          {currentStep === 0
-            ? "Noch nicht gestartet"
-            : currentStep > 5
-              ? "Auswertung"
-              : `Schritt ${currentStep}`}
+        <p className="text-muted">
+          Teile den Code, den Einladungslink oder den QR-Code fuer den Beitritt.
         </p>
       </header>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Diskussionscode</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xl font-semibold text-ink">{discussion.code}</p>
+            <CopyCodeButton code={discussion.code} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Einladungslink</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted">
+              Direkt zum Beitreten ohne Codeeingabe.
+            </p>
+            <CopyJoinLinkButton code={discussion.code} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>QR-Code</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <JoinQrCode code={discussion.code} />
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>

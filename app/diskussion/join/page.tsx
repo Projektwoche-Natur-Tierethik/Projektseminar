@@ -1,16 +1,28 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/src/components/ui/Input";
 import { Button } from "@/src/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/Card";
 
 export default function JoinDiscussionPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const codeParam = (searchParams.get("code") ?? "").trim().toUpperCase();
+    const nameParam = (searchParams.get("name") ?? "").trim();
+    if (codeParam && !code) {
+      setCode(codeParam);
+    }
+    if (nameParam && !name) {
+      setName(nameParam);
+    }
+  }, [searchParams, code, name]);
 
   async function handleJoin() {
     setError("");

@@ -15,3 +15,4 @@
 - Schriftarten laden mit latin-ext fuer deutsche Sonderzeichen.
 - Entwicklungsstart siehe `develop.md`.
 - Neue allgemeine Anweisungen aus User-Prompts werden hier festgehalten.
+- Backend nicht anfassen; falls Backend-Aenderungen unbedingt notwendig sind, vorher Rueckfrage stellen.
