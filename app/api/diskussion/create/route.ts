@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/src/lib/prisma";
 import { generateCode } from "@/src/lib/utils";
+import { getOrCreateUserByName } from "@/src/lib/db-helpers";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -11,26 +12,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing question" }, { status: 400 });
   }
 
-  let code = generateCode();
+  let code = Number(generateCode());
   const existing = await prisma.discussion.findUnique({ where: { code } });
   if (existing) {
-    code = generateCode(7);
+    code = Number(generateCode(7));
+  }
+
+  let hostUser = null;
+  if (hostName) {
+    hostUser = await getOrCreateUserByName(hostName);
   }
 
   const discussion = await prisma.discussion.create({
     data: {
       code,
-      question,
-      participants: hostName
+      discussionTheme: question,
+      participants: hostUser
         ? {
             create: {
-              name: hostName,
-              isHost: true
+              userId: hostUser.id,
+              admin: true
             }
           }
         : undefined
     }
   });
 
-  return NextResponse.json({ code: discussion.code });
+  return NextResponse.json({ code: String(discussion.code) });
 }

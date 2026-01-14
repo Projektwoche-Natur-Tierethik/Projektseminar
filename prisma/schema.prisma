@@ -7,115 +7,150 @@ datasource db {
   url      = "file:./dev.db"
 }
 
-model Discussion {
-  id             String           @id @default(cuid())
-  code           String           @unique
-  question       String
-  createdAt      DateTime         @default(now())
-  currentStep    Int              @default(0)
+model User {
+  id             String                        @id @default(cuid()) @map("user_id")
+  name           String                        @unique @map("user_name")
+  passwordHash   String                        @map("password_hash")
+  salt           String
   participants   Participant[]
-  valueSelections ValueSelection[]
-  stepResponses  StepResponse[]
-  stepStatuses   StepStatus[]
-  discussionQuestions DiscussionQuestion[]
-  questionComments QuestionComment[]
+  discussionPoints DiscussionPoint[]
+  discussionPointConclusions DiscussionPointConclusion[]
+  discussionPointConclusionLikes DiscussionPointConclusionLike[] @relation("DiscussionPointConclusionLiker")
+  discussionPointConclusionAuthorLikes DiscussionPointConclusionLike[] @relation("DiscussionPointConclusionAuthor")
+  participantConclusionLikes ParticipantConclusionLike[]
+  userValues     UserValue[]
+  norms          Norm[]
+
+  @@map("users")
+}
+
+model Discussion {
+  id                     String             @id @default(cuid()) @map("d_id")
+  code                   Int                @unique @map("d_code")
+  discussionTheme        String             @map("discussion_theme")
+  inclusionProblemPartOf Boolean            @default(false) @map("inclusion_problem_part_of")
+  normsPartOf            Boolean            @default(false) @map("norms_part_of")
+  step                   Int                @default(0)
+  participants           Participant[]
+  discussionPoints       DiscussionPoint[]
+  frameOfValues          FrameOfValue[]
+  userValues             UserValue[]
+  norms                  Norm[]
+
+  @@map("discussion")
 }
 
 model Participant {
-  id              String          @id @default(cuid())
-  name            String
-  isHost          Boolean         @default(false)
-  discussionId    String
-  discussion      Discussion      @relation(fields: [discussionId], references: [id])
-  valueSelections ValueSelection[]
-  stepResponses   StepResponse[]
-  stepStatuses    StepStatus[]
-  questionVotes   QuestionSkipVote[]
-  commentLikes    CommentLike[]
+  id             String                        @id @default(cuid()) @map("p_id")
+  userId         String                        @map("u_id")
+  discussionId   String                        @map("d_id")
+  mainConclusion String?                       @map("main_conclusion")
+  continueButton Boolean                       @default(false) @map("continue_button")
+  admin          Boolean                       @default(false)
+  user           User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  discussion     Discussion                    @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  participantConclusionLikes ParticipantConclusionLike[]
 
-  @@unique([discussionId, name])
+  @@unique([userId, discussionId])
+  @@map("participants")
 }
 
-model ValueSelection {
-  id            String      @id @default(cuid())
-  value         String
-  participantId String
-  participant   Participant @relation(fields: [participantId], references: [id])
-  discussionId  String
-  discussion    Discussion  @relation(fields: [discussionId], references: [id])
+model DiscussionPoint {
+  id               String                     @id @default(cuid()) @map("dp_id")
+  writtenByUserId  String                     @map("written_by_u_id")
+  discussionId     String                     @map("d_id")
+  markedAsComplete Boolean                    @default(false) @map("marked_as_complete")
+  discussionPoint  String                     @map("discussion_point")
+  writtenBy        User                       @relation(fields: [writtenByUserId], references: [id], onDelete: Cascade)
+  discussion       Discussion                 @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  conclusions      DiscussionPointConclusion[]
 
-  @@unique([participantId, value])
+  @@map("discussionpoints")
 }
 
-model StepResponse {
-  id            String      @id @default(cuid())
-  step          Int
-  response      String
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  participantId String
-  participant   Participant @relation(fields: [participantId], references: [id])
-  discussionId  String
-  discussion    Discussion  @relation(fields: [discussionId], references: [id])
+model DiscussionPointConclusion {
+  id               String                     @id @default(cuid()) @map("dp_conclusion_id")
+  discussionPointId String                    @map("dp_id")
+  userId           String                     @map("u_id")
+  conclusion       String
+  discussionPoint  DiscussionPoint            @relation(fields: [discussionPointId], references: [id], onDelete: Cascade)
+  user             User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likes            DiscussionPointConclusionLike[]
 
-  @@unique([participantId, step])
+  @@unique([discussionPointId, userId])
+  @@map("conclusions_discussionpoints")
 }
 
-model StepStatus {
-  id            String      @id @default(cuid())
-  step          Int
-  ready         Boolean     @default(false)
-  updatedAt     DateTime    @updatedAt
-  participantId String
-  participant   Participant @relation(fields: [participantId], references: [id])
-  discussionId  String
-  discussion    Discussion  @relation(fields: [discussionId], references: [id])
+model DiscussionPointConclusionLike {
+  likerUserId              String                     @map("user_likes_id")
+  dpConclusionId           String                     @map("dp_conclusion_id")
+  conclusionWrittenByUserId String                    @map("conclusion_written_by_user_id")
+  createdAt                DateTime                   @default(now()) @map("created_at")
+  liker                    User                       @relation("DiscussionPointConclusionLiker", fields: [likerUserId], references: [id], onDelete: Cascade)
+  conclusion               DiscussionPointConclusion   @relation(fields: [dpConclusionId], references: [id], onDelete: Cascade)
+  conclusionAuthor         User                       @relation("DiscussionPointConclusionAuthor", fields: [conclusionWrittenByUserId], references: [id], onDelete: Cascade)
 
-  @@unique([participantId, step])
+  @@id([likerUserId, dpConclusionId, conclusionWrittenByUserId])
+  @@map("likes_discussionpoint_conclusion")
 }
 
-model DiscussionQuestion {
-  id            String      @id @default(cuid())
-  text          String
-  authorName    String
-  createdAt     DateTime    @default(now())
-  discussionId  String
-  discussion    Discussion  @relation(fields: [discussionId], references: [id])
-  skipVotes     QuestionSkipVote[]
-  comments      QuestionComment[]
+model ParticipantConclusionLike {
+  likerUserId  String      @map("user_likes_id")
+  participantId String     @map("participants_conclusion_id")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  liker        User        @relation(fields: [likerUserId], references: [id], onDelete: Cascade)
+  participant  Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@id([likerUserId, participantId])
+  @@map("likes_discussion_conclusion")
 }
 
-model QuestionSkipVote {
-  id            String              @id @default(cuid())
-  createdAt     DateTime            @default(now())
-  questionId    String
-  question      DiscussionQuestion  @relation(fields: [questionId], references: [id])
-  participantId String
-  participant   Participant         @relation(fields: [participantId], references: [id])
+model FrameOfValue {
+  discussionId String   @map("d_id")
+  valueId      String   @map("v_id")
+  partOfFrame  Boolean  @default(false) @map("part_of_frame")
+  discussion   Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  value        Value     @relation(fields: [valueId], references: [id], onDelete: Cascade)
+  norms        Norm[]
+  userValues   UserValue[]
 
-  @@unique([questionId, participantId])
+  @@id([discussionId, valueId])
+  @@map("frame_of_values")
 }
 
-model QuestionComment {
-  id            String      @id @default(cuid())
-  text          String
-  authorName    String?
-  anonymous     Boolean     @default(true)
-  createdAt     DateTime    @default(now())
-  questionId    String
-  question      DiscussionQuestion @relation(fields: [questionId], references: [id])
-  discussionId  String
-  discussion    Discussion  @relation(fields: [discussionId], references: [id])
-  likes         CommentLike[]
+model UserValue {
+  discussionId String @map("d_id")
+  valueId      String @map("v_id")
+  userId       String @map("u_id")
+  discussion   Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  value        Value @relation(fields: [valueId], references: [id], onDelete: Cascade)
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  frameOfValue FrameOfValue? @relation(fields: [discussionId, valueId], references: [discussionId, valueId], onDelete: Cascade)
+
+  @@id([discussionId, valueId, userId])
+  @@map("user_values")
 }
 
-model CommentLike {
-  id            String      @id @default(cuid())
-  createdAt     DateTime    @default(now())
-  commentId     String
-  comment       QuestionComment @relation(fields: [commentId], references: [id])
-  participantId String
-  participant   Participant @relation(fields: [participantId], references: [id])
+model Value {
+  id     String        @id @default(cuid()) @map("v_id")
+  value  String        @unique
+  frameOfValues FrameOfValue[]
+  userValues   UserValue[]
 
-  @@unique([commentId, participantId])
+  @@map("values")
+}
+
+model Norm {
+  id            String  @id @default(cuid()) @map("n_id")
+  discussionId  String  @map("d_id")
+  userId        String  @map("u_id")
+  norm          String
+  basedOnValueId String @map("based_on_value")
+  partOfFrame   Boolean @default(false) @map("part_of_frame")
+  discussion    Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  frameOfValue  FrameOfValue @relation(fields: [discussionId, basedOnValueId], references: [discussionId, valueId], onDelete: Cascade)
+
+  @@index([discussionId, userId])
+  @@map("norms")
 }

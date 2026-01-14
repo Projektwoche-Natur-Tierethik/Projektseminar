@@ -5,7 +5,7 @@ type ControlAction = "start" | "next" | "finish";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const code = String(body.code ?? "").trim().toUpperCase();
+  const code = Number(String(body.code ?? "").trim());
   const name = String(body.name ?? "").trim();
   const action = String(body.action ?? "").trim() as ControlAction;
 
@@ -19,20 +19,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const participant = await prisma.participant.findUnique({
-    where: { discussionId_name: { discussionId: discussion.id, name } }
-  });
-
-  if (!participant?.isHost) {
+  const user = await prisma.user.findUnique({ where: { name } });
+  if (!user) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  let nextStep = discussion.currentStep;
+  const participant = await prisma.participant.findUnique({
+    where: { userId_discussionId: { userId: user.id, discussionId: discussion.id } }
+  });
+
+  if (!participant?.admin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  let nextStep = discussion.step;
 
   if (action === "start") {
-    nextStep = discussion.currentStep > 0 ? discussion.currentStep : 1;
+    nextStep = discussion.step > 0 ? discussion.step : 1;
   } else if (action === "next") {
-    const baseStep = discussion.currentStep === 0 ? 1 : discussion.currentStep + 1;
+    const baseStep = discussion.step === 0 ? 1 : discussion.step + 1;
     nextStep = Math.min(baseStep, 6);
   } else if (action === "finish") {
     nextStep = 6;
@@ -42,8 +47,8 @@ export async function POST(request: Request) {
 
   const updated = await prisma.discussion.update({
     where: { id: discussion.id },
-    data: { currentStep: nextStep }
+    data: { step: nextStep }
   });
 
-  return NextResponse.json({ currentStep: updated.currentStep });
+  return NextResponse.json({ currentStep: updated.step });
 }

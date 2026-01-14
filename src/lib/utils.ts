@@ -6,10 +6,10 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function generateCode(length = 6) {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const digits = "0123456789";
   let code = "";
   for (let i = 0; i < length; i += 1) {
-    code += chars[Math.floor(Math.random() * chars.length)];
+    code += digits[Math.floor(Math.random() * digits.length)];
   }
   return code;
 }

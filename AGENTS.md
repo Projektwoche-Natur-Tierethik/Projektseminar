@@ -15,3 +15,7 @@
 - Schriftarten laden mit latin-ext fuer deutsche Sonderzeichen.
 - Entwicklungsstart siehe `develop.md`.
 - Neue allgemeine Anweisungen aus User-Prompts werden hier festgehalten.
+
+## Backend/Frontend Zusammenarbeit
+- Kein Code im Frontend aendern; nur Backend bearbeiten, um Merge-Konflikte zu vermeiden.
+- Backend soll API-Dummys/Antworten bereitstellen, damit das Frontend ohne Fehler weiterentwickelt werden kann.
