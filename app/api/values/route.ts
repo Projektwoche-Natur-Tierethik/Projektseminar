@@ -1,56 +1,31 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/src/lib/prisma";
+import { valuesList } from "@/src/config/values";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const valueId = String(searchParams.get("valueId") ?? "").trim();
+  const valueIdParam = String(searchParams.get("valueId") ?? "").trim();
+  const valueId = valueIdParam ? Number(valueIdParam) : null;
 
-  if (valueId) {
-    const value = await prisma.value.findUnique({ where: { id: valueId } });
-    return NextResponse.json({ value });
+  if (typeof valueId === "number" && Number.isInteger(valueId) && valueId >= 0) {
+    const label = valuesList[valueId] ?? null;
+    return NextResponse.json({ value: label ? { valueId, value: label } : null });
   }
 
-  const values = await prisma.value.findMany();
+  const values = valuesList.map((value, index) => ({
+    valueId: index,
+    value
+  }));
   return NextResponse.json({ values });
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const value = String(body.value ?? "").trim();
-
-  if (!value) {
-    return NextResponse.json({ error: "Invalid data" }, { status: 400 });
-  }
-
-  const created = await prisma.value.create({ data: { value } });
-  return NextResponse.json({ value: created });
+  return NextResponse.json({ error: "Not supported" }, { status: 405 });
 }
 
 export async function PUT(request: Request) {
-  const body = await request.json();
-  const valueId = String(body.valueId ?? "").trim();
-  const value = String(body.value ?? "").trim();
-
-  if (!valueId || !value) {
-    return NextResponse.json({ error: "Invalid data" }, { status: 400 });
-  }
-
-  const updated = await prisma.value.update({
-    where: { id: valueId },
-    data: { value }
-  });
-
-  return NextResponse.json({ value: updated });
+  return NextResponse.json({ error: "Not supported" }, { status: 405 });
 }
 
 export async function DELETE(request: Request) {
-  const body = await request.json();
-  const valueId = String(body.valueId ?? "").trim();
-
-  if (!valueId) {
-    return NextResponse.json({ error: "Invalid data" }, { status: 400 });
-  }
-
-  await prisma.value.delete({ where: { id: valueId } });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ error: "Not supported" }, { status: 405 });
 }

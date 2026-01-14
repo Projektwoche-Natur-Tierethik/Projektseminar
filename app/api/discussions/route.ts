@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/src/lib/prisma";
 import { generateCode } from "@/src/lib/utils";
 import { valuesList } from "@/src/config/values";
+import { isAdminParticipant } from "@/src/lib/db-helpers";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -80,26 +81,54 @@ export async function PUT(request: Request) {
   const body = await request.json();
   const discussionId = String(body.discussionId ?? "").trim();
   const action = String(body.action ?? "").trim();
+  const adminUserId = String(body.adminUserId ?? "").trim();
+  const hasCurrentDiscussionPoint = Object.prototype.hasOwnProperty.call(
+    body,
+    "currentDiscussionPointId"
+  );
+  const currentDiscussionPointId =
+    body.currentDiscussionPointId === null
+      ? null
+      : String(body.currentDiscussionPointId ?? "").trim();
 
   if (!discussionId) {
     return NextResponse.json({ error: "Invalid data" }, { status: 400 });
   }
 
+  const currentDiscussion = await prisma.discussion.findUnique({
+    where: { id: discussionId }
+  });
+
+  if (!currentDiscussion) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   let stepUpdate = undefined as number | undefined;
   if (action === "increment_step") {
-    const current = await prisma.discussion.findUnique({ where: { id: discussionId } });
-    if (!current) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-    stepUpdate = current.step + 1;
+    stepUpdate = currentDiscussion.step + 1;
   } else if (action === "decrement_step") {
-    const current = await prisma.discussion.findUnique({ where: { id: discussionId } });
-    if (!current) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-    stepUpdate = Math.max(0, current.step - 1);
+    stepUpdate = Math.max(0, currentDiscussion.step - 1);
   } else if (Number.isFinite(body.step)) {
     stepUpdate = Number(body.step);
+  }
+
+  if (hasCurrentDiscussionPoint) {
+    if (!adminUserId) {
+      return NextResponse.json({ error: "Invalid data" }, { status: 400 });
+    }
+    const isAdmin = await isAdminParticipant({ discussionId, userId: adminUserId });
+    if (!isAdmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (currentDiscussionPointId) {
+      const point = await prisma.discussionPoint.findUnique({
+        where: { id: currentDiscussionPointId }
+      });
+      if (!point || point.discussionId !== discussionId) {
+        return NextResponse.json({ error: "Invalid discussion point" }, { status: 400 });
+      }
+    }
   }
 
   const discussion = await prisma.discussion.update({
@@ -125,7 +154,8 @@ export async function PUT(request: Request) {
             )
           }
         : null),
-      ...(typeof stepUpdate === "number" ? { step: stepUpdate } : null)
+      ...(typeof stepUpdate === "number" ? { step: stepUpdate } : null),
+      ...(hasCurrentDiscussionPoint ? { currentDiscussionPointId } : null)
     }
   });
 

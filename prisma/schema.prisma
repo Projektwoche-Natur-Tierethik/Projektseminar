@@ -33,8 +33,10 @@ model Discussion {
   valuesSelectionCount   Int                @default(10) @map("values_selection_count")
   questionsPerParticipant Int               @default(5) @map("questions_per_participant")
   step                   Int                @default(0)
+  currentDiscussionPointId String?          @map("current_discussion_point_id")
   participants           Participant[]
-  discussionPoints       DiscussionPoint[]
+  discussionPoints       DiscussionPoint[]  @relation("DiscussionToPoints")
+  currentDiscussionPoint DiscussionPoint?   @relation("CurrentDiscussionPoint", fields: [currentDiscussionPointId], references: [id], onDelete: SetNull)
   frameOfValues          FrameOfValue[]
   userValues             UserValue[]
   norms                  Norm[]
@@ -64,7 +66,7 @@ model DiscussionPoint {
   markedAsComplete Boolean                    @default(false) @map("marked_as_complete")
   discussionPoint  String                     @map("discussion_point")
   writtenBy        User                       @relation(fields: [writtenByUserId], references: [id], onDelete: Cascade)
-  discussion       Discussion                 @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  discussion       Discussion                 @relation("DiscussionToPoints", fields: [discussionId], references: [id], onDelete: Cascade)
   conclusions      DiscussionPointConclusion[]
 
   @@map("discussionpoints")
@@ -109,10 +111,9 @@ model ParticipantConclusionLike {
 
 model FrameOfValue {
   discussionId String   @map("d_id")
-  valueId      String   @map("v_id")
+  valueId      Int      @map("v_id")
   partOfFrame  Boolean  @default(false) @map("part_of_frame")
   discussion   Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
-  value        Value     @relation(fields: [valueId], references: [id], onDelete: Cascade)
   norms        Norm[]
   userValues   UserValue[]
 
@@ -122,10 +123,9 @@ model FrameOfValue {
 
 model UserValue {
   discussionId String @map("d_id")
-  valueId      String @map("v_id")
+  valueId      Int    @map("v_id")
   userId       String @map("u_id")
   discussion   Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
-  value        Value @relation(fields: [valueId], references: [id], onDelete: Cascade)
   user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
   frameOfValue FrameOfValue? @relation(fields: [discussionId, valueId], references: [discussionId, valueId], onDelete: Cascade)
 
@@ -133,21 +133,12 @@ model UserValue {
   @@map("user_values")
 }
 
-model Value {
-  id     String        @id @default(cuid()) @map("v_id")
-  value  String        @unique
-  frameOfValues FrameOfValue[]
-  userValues   UserValue[]
-
-  @@map("values")
-}
-
 model Norm {
   id            String  @id @default(cuid()) @map("n_id")
   discussionId  String  @map("d_id")
   userId        String  @map("u_id")
   norm          String
-  basedOnValueId String @map("based_on_value")
+  basedOnValueId Int    @map("based_on_value")
   partOfFrame   Boolean @default(false) @map("part_of_frame")
   discussion    Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
   user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)

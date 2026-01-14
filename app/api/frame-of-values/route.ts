@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/src/lib/prisma";
 import { isAdminParticipant } from "@/src/lib/db-helpers";
+import { resolveValueId } from "@/src/lib/value-helpers";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -41,7 +42,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const body = await request.json();
   const discussionId = String(body.discussionId ?? "").trim();
-  const valueId = String(body.valueId ?? "").trim();
+  const valueId = resolveValueId(body.valueId ?? body.value);
   const partOfFrame = Boolean(body.partOfFrame);
 
   if (!discussionId || !valueId) {
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   const body = await request.json();
   const discussionId = String(body.discussionId ?? "").trim();
-  const valueId = String(body.valueId ?? "").trim();
+  const valueId = resolveValueId(body.valueId ?? body.value);
   const partOfFrame = body.partOfFrame;
   const adminUserId = String(body.adminUserId ?? "").trim();
 
@@ -82,7 +83,7 @@ export async function PUT(request: Request) {
 export async function DELETE(request: Request) {
   const body = await request.json();
   const discussionId = String(body.discussionId ?? "").trim();
-  const valueId = String(body.valueId ?? "").trim();
+  const valueId = resolveValueId(body.valueId ?? body.value);
 
   if (!discussionId || !valueId) {
     return NextResponse.json({ error: "Invalid data" }, { status: 400 });

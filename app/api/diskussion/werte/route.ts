@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/src/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { getValueLabel, resolveValueId } from "@/src/lib/value-helpers";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -20,18 +20,9 @@ export async function GET(request: Request) {
     _count: { valueId: true }
   });
 
-  const values = await prisma.value.findMany({
-    where: { id: { in: counts.map((item) => item.valueId) } }
-  });
-
-  const valueMap = values.reduce((acc, item) => {
-    acc[item.id] = item.value;
-    return acc;
-  }, {} as Record<string, string>);
-
   const topValues = counts
     .map((item) => ({
-      value: valueMap[item.valueId] ?? item.valueId,
+      value: getValueLabel(item.valueId) ?? String(item.valueId),
       count: item._count.valueId
     }))
     .sort((a, b) => b.count - a.count);
@@ -69,37 +60,26 @@ export async function POST(request: Request) {
   });
 
   if (values.length > 0) {
-    const valueRecords = await Promise.all(
-      values.map(async (valueLabel: string) => {
-        const existing = await prisma.value.findUnique({ where: { value: valueLabel } });
-        if (existing) {
-          return existing;
-        }
-        return prisma.value.create({ data: { value: valueLabel } });
-      })
+    const resolvedValueIds = values
+      .map(resolveValueId)
+      .filter((valueId): valueId is number => typeof valueId === "number");
+
+    const uniqueValueIds = Array.from(new Set(resolvedValueIds));
+
+    await Promise.all(
+      uniqueValueIds.map((valueId) =>
+        prisma.frameOfValue.upsert({
+          where: { discussionId_valueId: { discussionId: discussion.id, valueId } },
+          update: {},
+          create: { discussionId: discussion.id, valueId, partOfFrame: false }
+        })
+      )
     );
 
-    for (const valueRecord of valueRecords) {
-      try {
-        await prisma.frameOfValue.create({
-          data: {
-            discussionId: discussion.id,
-            valueId: valueRecord.id,
-            partOfFrame: false
-          }
-        });
-      } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-          continue;
-        }
-        throw error;
-      }
-    }
-
     await prisma.userValue.createMany({
-      data: valueRecords.map((valueRecord) => ({
+      data: uniqueValueIds.map((valueId) => ({
         discussionId: discussion.id,
-        valueId: valueRecord.id,
+        valueId,
         userId: user.id
       }))
     });

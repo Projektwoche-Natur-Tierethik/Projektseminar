@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/src/lib/prisma";
 import { isAdminParticipant } from "@/src/lib/db-helpers";
+import { resolveValueId } from "@/src/lib/value-helpers";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
   const discussionId = String(body.discussionId ?? "").trim();
   const userId = String(body.userId ?? "").trim();
   const norm = String(body.norm ?? "").trim();
-  const basedOnValueId = String(body.basedOnValueId ?? "").trim();
+  const basedOnValueId = resolveValueId(body.basedOnValueId ?? body.basedOnValue);
   const partOfFrame = Boolean(body.partOfFrame);
 
   if (!discussionId || !userId || !norm || !basedOnValueId) {
