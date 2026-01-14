@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { buttonStyles } from "@/src/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/Card";
+import { Tab, Tabs } from "@/src/components/ui/Tabs";
 
 const sections = [
   { id: "ethik-moral", label: "Ethik und Moral" },
   { id: "werte-normen-pflichten", label: "Werte, Normen und Pflichten" },
-  { id: "inklusion", label: "Inklusionsproblem" },
-  { id: "umwelt-tierethik", label: "Umwelt- & Tierethik" }
+  { id: "umwelt-tierethik", label: "Umwelt- & Tierethik" },
+  { id: "inklusion", label: "Inklusionsproblem" }
 ];
 
 const conceptCards = [
@@ -59,9 +60,57 @@ const wnpSources = [
   }
 ];
 
+const inklusionSources = [
+  {
+    id: "1",
+    label: "Bundeszentrale fuer politische Bildung: Naturschutztheorie.",
+    href: "https://www.bpb.de/themen/umwelt/bioethik/272093/naturschutztheorie/"
+  }
+];
+
+const umweltTierethikSources = [
+  {
+    id: "1",
+    label: "Bundeszentrale fuer politische Bildung: Naturschutztheorie.",
+    href: "https://www.bpb.de/themen/umwelt/bioethik/272093/naturschutztheorie/"
+  }
+];
+
+const inklusionAntworten = [
+  {
+    id: "sentientismus",
+    title: "Sentientismus",
+    summary:
+      "Beim Sentientismus, auch Pathozentrismus genannt, ist die Fähigkeit zu fühlen und zu leiden entscheidend. Moralischer Selbstwert gilt also für empfindungsfähige Wesen",
+    focus: "Kriterium: Empfindungsfähigkeit (Sentienz)"
+  },
+  {
+    id: "biozentrik",
+    title: "Biozentrik",
+    summary:
+      "Alles Lebendige besitzt Eigenwert, nicht nur empfindungsfähige Individuen.",
+    focus: "Kriterium: Leben als solches"
+  },
+  {
+    id: "oekozentrismus",
+    title: "Ökozentrismus",
+    summary:
+      "Moralischer Selbstwert liegt bei Ökosystemen, Arten und Gemeinschaften als Ganzem.",
+    focus: "Kriterium: Integrität und Stabilität von Ökosystemen"
+  },
+  {
+    id: "pluralistischer-holismus",
+    title: "Pluralistischer Holismus",
+    summary:
+      "Mehrere Ebenen haben Eigenwert: Individuen, Arten und Ökosysteme. Niemand wird aus der moralischen Gemeinschaft ausgeschlossen.",
+    focus: "Kriterium: Keines"
+  }
+];
+
 export default function BegriffsklaerungContent() {
   const defaultId = "werte-normen-pflichten";
   const [activeId, setActiveId] = useState(defaultId);
+  const [aktiveAntwort, setAktiveAntwort] = useState(inklusionAntworten[0]?.id);
   const sectionIndex = useMemo(
     () => sections.findIndex((section) => section.id === activeId),
     [activeId]
@@ -200,38 +249,220 @@ export default function BegriffsklaerungContent() {
             </section>
           )}
 
-          {activeId === "inklusion" && (
-            <section id="inklusion" className="space-y-4">
-              <h2 className="text-2xl font-semibold text-ink">Inklusionsproblem</h2>
-            <Card>
-              <CardHeader>
-                <CardTitle>Platzhalter</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted">
-                Hier folgt die inhaltliche Ausarbeitung: Wer oder was soll durch
-                die Normen geschuetzt werden? Hinweise, Beispiele und Quellen
-                werden ergaenzt.
-              </CardContent>
-            </Card>
-          </section>
-          )}
-
           {activeId === "umwelt-tierethik" && (
             <section id="umwelt-tierethik" className="space-y-4">
               <h2 className="text-2xl font-semibold text-ink">
                 Umwelt- & Tierethik
               </h2>
-            <Card>
-              <CardHeader>
-                <CardTitle>Platzhalter</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted">
-                Hier folgt der Text zur Abgrenzung, zu Leitfragen und
-                Diskussionslinien. Quellen und Beispiele werden spaeter
-                eingepflegt.
-              </CardContent>
-            </Card>
-          </section>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Einordnung</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm text-muted">
+                  <p>
+                    Umwelt- und Tierethik sind Teil der angewandten Ethik und
+                    arbeiten interdisziplinaer an der Schnittstelle von Philosophie,
+                    Ökologie, Recht, Politik und Technik.
+                  </p>
+                  <p>
+                    Beide Felder verbinden normative Ethik mit Verantwortungsethik
+                    und denken die Beziehungen zwischen Mensch, Tier, Natur und
+                    Gesellschaft als zusammenhängenden Handlungsraum.
+                  </p>
+                  <div className="space-y-2">
+                    <p className="text-ink">Argumentationsraum</p>
+                    <ul className="list-disc space-y-2 pl-5">
+                      <li>
+                        Angewiesenheit: Schutz von Naturguetern, weil Menschen
+                        auf Ressourcen wie Wasser, Boden und Luft angewiesen
+                        sind und eine gerechte Nutzung verlangt wird.
+                      </li>
+                      <li>
+                        Gutes Leben: Natur und Tierwelt als Quelle von Erholung,
+                        Heimat und Lebensqualität; daraus ergeben sich
+                        tugendethische Perspektiven.
+                      </li>
+                      <li>
+                        Zukunftsverantwortung: Rücksicht auf zukünftige
+                        Generationen und ihre Lebenschancen.
+                      </li>
+                      <li>
+                        Moralischer Selbstwert: Naturwesen und Tiere können um
+                        ihrer selbst willen schutzwürdig sein.
+                      </li>
+                      <li>
+                        Naturphilosophische und religiöse Zugänge: Deutungen
+                        von Natur als sinn- oder wertvoll, oft mit spirituellen
+                        Bezügen.
+                      </li>
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
+              <div className="grid gap-6 lg:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Umweltethik</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4 text-sm text-muted">
+                    <p>
+                      Pluraler Diskurs seit Mitte des 20. Jahrhunderts mit Fokus
+                      auf dem moralischen Status der Natur und den Grenzen
+                      menschlicher Eingriffe.
+                    </p>
+                    <div className="space-y-2">
+                      <p className="text-ink">Normative Leitlinien</p>
+                      <ul className="list-disc space-y-2 pl-5">
+                        <li>
+                          Achtung der Natur: Schutz von Integrität und
+                          Biodiversitaet.
+                        </li>
+                        <li>
+                          Umweltgerechtigkeit: faire Verteilung von Vorteilen
+                          und Belastungen sowie Beteiligung an Entscheidungen.
+                        </li>
+                        <li>
+                          Generationengerechtigkeit: gleiche Rechte ueber
+                          Generationen hinweg, z. B. Klimaschutz und
+                          Nachhaltigkeit.
+                        </li>
+                      </ul>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Tierethik</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4 text-sm text-muted">
+                    <p>
+                      Kontroverser Diskurs seit Ende des 20. Jahrhunderts mit
+                      Fokus auf dem moralischen Status von Tieren.
+                    </p>
+                    <div className="space-y-2">
+                      <p className="text-ink">Zentrale Debatten</p>
+                      <ul className="list-disc space-y-2 pl-5">
+                        <li>
+                          Speziesismus: Sonderstellung des Menschen in
+                          Rechten und Pflichten.
+                        </li>
+                        <li>
+                          Anti-Speziesismus: Tierrechte und Wuerde der Kreatur,
+                          u. a. mit utilitaristischen, mitleidsethischen und
+                          rechtenbasierten Ansätzen.
+                        </li>
+                      </ul>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-ink">Normative Leitlinien</p>
+                      <ul className="list-disc space-y-2 pl-5">
+                        <li>
+                          Leidvermeidung (Pathozentrismus): Pflicht zur
+                          Unterlassung von Leid.
+                        </li>
+                        <li>
+                          Artgerechter Umgang: Berücksichtigung biologischer
+                          Lebensformen und Empfindungsfähigkeit.
+                        </li>
+                        <li>
+                          Tierrechte: Tiere sind keine bloßen Mittel; Forderung
+                          nach moralischer und rechtlicher Einbindung.
+                        </li>
+                      </ul>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              <details className="text-sm text-muted">
+                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.2em] text-ink">
+                  Quellen
+                </summary>
+                <div className="mt-3 space-y-2">
+                  {umweltTierethikSources.map((source) => (
+                    <a
+                      key={source.id}
+                      href={source.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block text-sm text-ink underline-offset-4 hover:underline"
+                    >
+                      [{source.id}] {source.label}
+                    </a>
+                  ))}
+                </div>
+              </details>
+            </section>
+          )}
+
+          {activeId === "inklusion" && (
+            <section id="inklusion" className="space-y-4">
+              <h2 className="text-2xl font-semibold text-ink">Inklusionsproblem</h2>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Wer hat moralischen Selbstwert?</CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-muted">
+                  Beim Inklusionsproblem geht es darum, die Menge der Wesen zu bestimmen,
+                  die um ihrer selbst willen moralisch zu beruecksichtigen sind. Diese
+                  erheben den Anspruch, nicht rein als Mittel fuer beliebige Zwecke
+                  missbraucht zu werden.
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Mögliche Antworten</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Tabs>
+                    {inklusionAntworten.map((antwort) => (
+                      <Tab
+                        key={antwort.id}
+                        type="button"
+                        active={aktiveAntwort === antwort.id}
+                        onClick={() => setAktiveAntwort(antwort.id)}
+                      >
+                        {antwort.title}
+                      </Tab>
+                    ))}
+                  </Tabs>
+                  {inklusionAntworten.map((antwort) =>
+                    aktiveAntwort === antwort.id ? (
+                      <div
+                        key={antwort.id}
+                        className="rounded-2xl border border-border bg-bg px-4 py-4"
+                      >
+                        <p className="text-xs uppercase tracking-[0.2em] text-muted">
+                          Lösungsansatz
+                        </p>
+                        <h3 className="mt-2 text-lg font-semibold text-ink">
+                          {antwort.title}
+                        </h3>
+                        <p className="mt-2 text-sm text-muted">{antwort.summary}</p>
+                        <p className="mt-3 text-sm text-ink">{antwort.focus}</p>
+                      </div>
+                    ) : null
+                  )}
+                </CardContent>
+              </Card>
+              <details className="text-sm text-muted">
+                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.2em] text-ink">
+                  Quellen
+                </summary>
+                <div className="mt-3 space-y-2">
+                  {inklusionSources.map((source) => (
+                    <a
+                      key={source.id}
+                      href={source.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block text-sm text-ink underline-offset-4 hover:underline"
+                    >
+                      [{source.id}] {source.label}
+                    </a>
+                  ))}
+                </div>
+              </details>
+            </section>
           )}
 
           <div className="flex flex-wrap items-center justify-between gap-3">

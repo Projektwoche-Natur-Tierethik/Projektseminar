@@ -4,6 +4,7 @@ Die Website sollte folgende Reiter enthalten:
 - Ethische Grundbegriffe erklären um diese in einer Diskussion richtig zu verwenden und zu verstehen
 - schnell zugänglich, um während einer Diskussion Begriffe nachzuschlagen
 - Material von Prof. Wernecke
+- neuer Tab mit aktuellen Ansätzen: weg vom Inklusionsproblem
 ## 2. Diskussionsassistent
 - Feature unserer App: Step by Step Guide um eine ethisch begründete Diskussion sauber und strukturiert zu führen. Die App soll als Begleitung für eine Diskussion dienen können.
 - Einzelne Diskussionsschritte zum abhaken:
