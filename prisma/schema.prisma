@@ -33,7 +33,7 @@ model Discussion {
   valuesSelectionCount   Int                @default(10) @map("values_selection_count")
   questionsPerParticipant Int               @default(5) @map("questions_per_participant")
   step                   Int                @default(0)
-  currentDiscussionPointId String?          @map("current_discussion_point_id")
+  currentDiscussionPointId String?          @unique @map("current_discussion_point_id")
   participants           Participant[]
   discussionPoints       DiscussionPoint[]  @relation("DiscussionToPoints")
   currentDiscussionPoint DiscussionPoint?   @relation("CurrentDiscussionPoint", fields: [currentDiscussionPointId], references: [id], onDelete: SetNull)
@@ -68,6 +68,7 @@ model DiscussionPoint {
   discussionPoint  String                     @map("discussion_point")
   writtenBy        User                       @relation(fields: [writtenByUserId], references: [id], onDelete: Cascade)
   discussion       Discussion                 @relation("DiscussionToPoints", fields: [discussionId], references: [id], onDelete: Cascade)
+  currentForDiscussion Discussion?            @relation("CurrentDiscussionPoint")
   conclusions      DiscussionPointConclusion[]
 
   @@map("discussionpoints")
