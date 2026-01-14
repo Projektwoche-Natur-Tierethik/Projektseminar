@@ -4,6 +4,7 @@ import HostControls from "@/src/components/discussion/HostControls";
 import CopyCodeButton from "@/src/components/discussion/CopyCodeButton";
 import CopyJoinLinkButton from "@/src/components/discussion/CopyJoinLinkButton";
 import JoinQrCode from "@/src/components/discussion/JoinQrCode";
+import LobbyAutoRedirect from "@/src/components/discussion/LobbyAutoRedirect";
 import { buttonStyles } from "@/src/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/Card";
 import { normalizeDiscussionSettings } from "@/src/lib/discussion-settings";
@@ -13,11 +14,13 @@ type LobbyPageProps = {
   searchParams?: { name?: string };
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function LobbyPage({ params, searchParams }: LobbyPageProps) {
   const code = Number(params.code);
   const discussion = await prisma.discussion.findUnique({
     where: { code },
-    include: { participants: true }
+    include: { participants: { include: { user: true } } }
   });
 
   if (!discussion) {
@@ -29,6 +32,7 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
   }
 
   const name = searchParams?.name ?? "";
+  const shouldAutoRedirect = Boolean(name);
   const settings = normalizeDiscussionSettings({
     normsPartOf: discussion.normsPartOf,
     inclusionProblemPartOf: discussion.inclusionProblemPartOf,
@@ -36,30 +40,18 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
     questionsPerParticipant: discussion.questionsPerParticipant
   });
 
-  const currentStep = discussion.currentStep;
-  const participant = discussion.participants.find((item) => item.name === name);
-  const isHost = participant?.isHost ?? false;
+  const currentStep = discussion.step;
+  const participant = discussion.participants.find((item) => item.user.name === name);
+  const isHost = participant?.admin ?? false;
 
-  const stepStatuses =
-    currentStep > 0 && currentStep <= 5
-      ? await prisma.stepStatus.findMany({
-          where: { discussionId: discussion.id, step: currentStep },
-          select: { participantId: true, ready: true, updatedAt: true }
-        })
-      : [];
-
-  const statusByParticipant = new Map(
-    stepStatuses.map((status) => [status.participantId, status])
-  );
-
-  const visibleParticipants = discussion.participants.filter((item) => !item.isHost);
+  const visibleParticipants = discussion.participants.filter((item) => !item.admin);
   const readyCount = visibleParticipants.reduce((count, item) => {
-    const status = statusByParticipant.get(item.id);
-    return status?.ready ? count + 1 : count;
+    return item.continueButton ? count + 1 : count;
   }, 0);
 
   return (
     <div className="container mx-auto space-y-8 pb-20 pt-12">
+      {shouldAutoRedirect && <LobbyAutoRedirect code={code} name={name} />}
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold">Lobby</h1>
         <p className="text-muted">
@@ -105,7 +97,7 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
           <CardTitle>Fragestellung</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted">{discussion.question}</p>
+          <p className="text-sm text-muted">{discussion.discussionTheme}</p>
         </CardContent>
       </Card>
 
@@ -115,7 +107,7 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted">
           {discussion.participants.map((participant) => (
-            <div key={participant.id}>{participant.name}</div>
+            <div key={participant.id}>{participant.user.name}</div>
           ))}
         </CardContent>
       </Card>
@@ -155,21 +147,14 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
                 </p>
                 <div className="space-y-2">
                   {visibleParticipants.map((item) => {
-                    const status = statusByParticipant.get(item.id);
-                    const label = status?.ready ? "bereit" : "nicht bereit";
-                    const timestamp = status?.updatedAt
-                      ? new Date(status.updatedAt).toLocaleString("de-DE")
-                      : null;
+                    const label = item.continueButton ? "bereit" : "nicht bereit";
                     return (
                       <div
                         key={item.id}
                         className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-bg px-3 py-2"
                       >
-                        <span>{item.name}</span>
-                        <span className="text-xs text-muted">
-                          {label}
-                          {timestamp ? ` · ${timestamp}` : ""}
-                        </span>
+                        <span>{item.user.name}</span>
+                        <span className="text-xs text-muted">{label}</span>
                       </div>
                     );
                   })}

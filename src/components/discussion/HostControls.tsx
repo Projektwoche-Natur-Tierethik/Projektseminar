@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/src/components/ui/Button";
 import {
   type DiscussionSettings,
+  getDisplayStepNumber,
   getEnabledSteps
 } from "@/src/lib/discussion-settings";
 
@@ -85,6 +86,7 @@ export default function HostControls({
   }
 
   const isFinished = currentStep >= 6;
+  const displayStepNumber = getDisplayStepNumber(currentStep, settings);
 
   return (
     <div className="space-y-3">
@@ -94,7 +96,7 @@ export default function HostControls({
           ? "Noch nicht gestartet"
           : currentStep > 5
             ? "Auswertung"
-            : `Schritt ${currentStep}`}
+            : `Schritt ${displayStepNumber ?? currentStep}`}
       </p>
       <div className="flex flex-wrap gap-2">
         {currentStep === 0 && (

@@ -15,7 +15,7 @@ const highlights = [
   },
   {
     title: "Diskussionsassistent",
-    text: "Strukturierter Ablauf in 5 Schritten: Werte, Normen, Inklusion, Umsetzung, Feedback."
+    text: "Strukturierter Ablauf in bis zu 5 Schritten: Werte, Normen, Inklusion, Umsetzung, Feedback."
   },
   {
     title: "Diskussionsforum",

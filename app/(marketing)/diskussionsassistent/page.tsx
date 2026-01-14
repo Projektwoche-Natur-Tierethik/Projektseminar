@@ -45,11 +45,11 @@ export default function AssistantPage() {
       </header>
 
       <section className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {discussionSteps.map((step) => (
+        {discussionSteps.map((step, index) => (
           <Card key={step.step}>
             <CardHeader>
               <CardTitle>
-                Schritt {step.step}: {step.title}
+                Schritt {index + 1}: {step.title}
               </CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted">

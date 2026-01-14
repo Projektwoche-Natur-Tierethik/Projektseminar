@@ -6,11 +6,12 @@ type ResultPageProps = {
 };
 
 export default async function ResultPage({ params }: ResultPageProps) {
+  const code = Number(params.code);
   const discussion = await prisma.discussion.findUnique({
-    where: { code: params.code },
+    where: { code },
     include: {
-      valueSelections: true,
-      stepResponses: { include: { participant: true } }
+      userValues: { include: { value: true } },
+      discussionPoints: { include: { writtenBy: true } }
     }
   });
 
@@ -22,8 +23,9 @@ export default async function ResultPage({ params }: ResultPageProps) {
     );
   }
 
-  const counts = discussion.valueSelections.reduce((acc, item) => {
-    acc[item.value] = (acc[item.value] ?? 0) + 1;
+  const counts = discussion.userValues.reduce((acc, item) => {
+    const label = item.value?.value ?? "Unbekannt";
+    acc[label] = (acc[label] ?? 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
@@ -32,12 +34,7 @@ export default async function ResultPage({ params }: ResultPageProps) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  const responsesByStep = discussion.stepResponses.reduce((acc, response) => {
-    const key = response.step;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(response);
-    return acc;
-  }, {} as Record<number, typeof discussion.stepResponses>);
+  const questions = discussion.discussionPoints;
 
   return (
     <div className="container mx-auto space-y-8 pb-20 pt-12">
@@ -64,23 +61,25 @@ export default async function ResultPage({ params }: ResultPageProps) {
         </CardContent>
       </Card>
 
-      {Object.entries(responsesByStep).map(([step, responses]) => (
-        <Card key={step}>
-          <CardHeader>
-            <CardTitle>Schritt {step}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-muted">
-            {responses.map((response) => (
-              <div key={response.id}>
-                <p className="font-medium text-ink">
-                  {response.participant.name}
+      <Card>
+        <CardHeader>
+          <CardTitle>Diskussionsfragen</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted">
+          {questions.length > 0 ? (
+            questions.map((question) => (
+              <div key={question.id} className="space-y-1">
+                <p className="text-ink">{question.discussionPoint}</p>
+                <p className="text-xs text-muted">
+                  {question.writtenBy?.name ?? "Unbekannt"}
                 </p>
-                <p>{response.response}</p>
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      ))}
+            ))
+          ) : (
+            <p>Keine Fragen erfasst.</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

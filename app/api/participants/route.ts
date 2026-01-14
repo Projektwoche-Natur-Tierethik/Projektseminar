@@ -6,6 +6,7 @@ export async function GET(request: Request) {
   const participantId = String(searchParams.get("participantId") ?? "").trim();
   const discussionId = String(searchParams.get("discussionId") ?? "").trim();
   const userId = String(searchParams.get("userId") ?? "").trim();
+  const includeUser = String(searchParams.get("includeUser") ?? "").trim() === "true";
 
   if (participantId) {
     const participant = await prisma.participant.findUnique({
@@ -18,7 +19,8 @@ export async function GET(request: Request) {
     where: {
       ...(discussionId ? { discussionId } : null),
       ...(userId ? { userId } : null)
-    }
+    },
+    ...(includeUser ? { include: { user: true } } : null)
   });
 
   return NextResponse.json({ participants });

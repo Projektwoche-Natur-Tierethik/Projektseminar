@@ -61,3 +61,9 @@ export function isStepEnabled(step: number, settings: DiscussionSettings) {
 export function getEnabledSteps(settings: DiscussionSettings) {
   return discussionSteps.map((item) => item.step).filter((step) => isStepEnabled(step, settings));
 }
+
+export function getDisplayStepNumber(actualStep: number, settings: DiscussionSettings) {
+  const enabledSteps = getEnabledSteps(settings);
+  const index = enabledSteps.indexOf(actualStep);
+  return index >= 0 ? index + 1 : null;
+}

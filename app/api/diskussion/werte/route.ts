@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/src/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -77,6 +78,23 @@ export async function POST(request: Request) {
         return prisma.value.create({ data: { value: valueLabel } });
       })
     );
+
+    for (const valueRecord of valueRecords) {
+      try {
+        await prisma.frameOfValue.create({
+          data: {
+            discussionId: discussion.id,
+            valueId: valueRecord.id,
+            partOfFrame: false
+          }
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          continue;
+        }
+        throw error;
+      }
+    }
 
     await prisma.userValue.createMany({
       data: valueRecords.map((valueRecord) => ({
