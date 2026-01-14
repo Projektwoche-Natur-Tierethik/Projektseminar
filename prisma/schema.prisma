@@ -17,6 +17,8 @@ model Discussion {
   valueSelections ValueSelection[]
   stepResponses  StepResponse[]
   stepStatuses   StepStatus[]
+  discussionQuestions DiscussionQuestion[]
+  questionComments QuestionComment[]
 }
 
 model Participant {
@@ -28,6 +30,8 @@ model Participant {
   valueSelections ValueSelection[]
   stepResponses   StepResponse[]
   stepStatuses    StepStatus[]
+  questionVotes   QuestionSkipVote[]
+  commentLikes    CommentLike[]
 
   @@unique([discussionId, name])
 }
@@ -68,4 +72,50 @@ model StepStatus {
   discussion    Discussion  @relation(fields: [discussionId], references: [id])
 
   @@unique([participantId, step])
+}
+
+model DiscussionQuestion {
+  id            String      @id @default(cuid())
+  text          String
+  authorName    String
+  createdAt     DateTime    @default(now())
+  discussionId  String
+  discussion    Discussion  @relation(fields: [discussionId], references: [id])
+  skipVotes     QuestionSkipVote[]
+  comments      QuestionComment[]
+}
+
+model QuestionSkipVote {
+  id            String              @id @default(cuid())
+  createdAt     DateTime            @default(now())
+  questionId    String
+  question      DiscussionQuestion  @relation(fields: [questionId], references: [id])
+  participantId String
+  participant   Participant         @relation(fields: [participantId], references: [id])
+
+  @@unique([questionId, participantId])
+}
+
+model QuestionComment {
+  id            String      @id @default(cuid())
+  text          String
+  authorName    String?
+  anonymous     Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  questionId    String
+  question      DiscussionQuestion @relation(fields: [questionId], references: [id])
+  discussionId  String
+  discussion    Discussion  @relation(fields: [discussionId], references: [id])
+  likes         CommentLike[]
+}
+
+model CommentLike {
+  id            String      @id @default(cuid())
+  createdAt     DateTime    @default(now())
+  commentId     String
+  comment       QuestionComment @relation(fields: [commentId], references: [id])
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id])
+
+  @@unique([commentId, participantId])
 }
