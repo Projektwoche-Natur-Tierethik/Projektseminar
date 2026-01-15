@@ -1,4 +1,5 @@
 import { prisma } from "@/src/lib/prisma";
+import { getValueLabel } from "@/src/lib/value-helpers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/Card";
 
 type WertePageProps = {
@@ -13,7 +14,7 @@ export default async function WertePage({ params, searchParams }: WertePageProps
   const discussion = await prisma.discussion.findUnique({
     where: { code },
     include: {
-      userValues: { include: { value: true } },
+      userValues: true,
       participants: true
     }
   });
@@ -45,7 +46,7 @@ export default async function WertePage({ params, searchParams }: WertePageProps
       .map((item) => item.value?.value ?? "Unbekannt")
   );
   const counts = discussion.userValues.reduce((acc, item) => {
-    const label = item.value?.value ?? "Unbekannt";
+    const label = getValueLabel(item.valueId) ?? "Unbekannt";
     acc[label] = (acc[label] ?? 0) + 1;
     return acc;
   }, {} as Record<string, number>);
