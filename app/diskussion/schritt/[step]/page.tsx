@@ -1310,7 +1310,7 @@ export default function DiscussionStepPage() {
                     return (
                       <div
                         key={item.value}
-                        className={`flex items-center justify-between rounded-lg px-2 py-1 ${
+                        className={`flex items-center justify-between rounded-none px-2 py-1 ${
                           isSelected ? "bg-primary/10 text-ink" : ""
                         }`}
                       >

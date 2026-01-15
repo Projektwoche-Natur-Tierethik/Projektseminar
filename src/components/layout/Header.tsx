@@ -43,7 +43,7 @@ export default function Header() {
           <Link
             key={item.href}
             href={item.href}
-            className="whitespace-nowrap rounded-full border border-border px-3 py-1 text-ink/70"
+            className="whitespace-nowrap rounded-none border border-border px-3 py-1 text-ink/70"
           >
             {item.label}
           </Link>

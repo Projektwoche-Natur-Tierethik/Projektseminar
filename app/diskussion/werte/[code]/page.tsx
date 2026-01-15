@@ -81,9 +81,9 @@ export default async function WertePage({ params, searchParams }: WertePageProps
                     <span>{item.value}</span>
                     <span>{item.count}</span>
                   </div>
-                  <div className="h-2 w-full rounded-full bg-border">
+                  <div className="h-2 w-full rounded-none bg-border">
                     <div
-                      className={`h-2 rounded-full ${isSelected ? "bg-primary" : "bg-ink/40"}`}
+                      className={`h-2 rounded-none ${isSelected ? "bg-primary" : "bg-ink/40"}`}
                       style={{ width: `${Math.max((item.count / maxCount) * 100, 4)}%` }}
                     />
                   </div>

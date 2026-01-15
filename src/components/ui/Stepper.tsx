@@ -14,7 +14,7 @@ export function Stepper({ steps, current, onStepClick, maxClickableStep }: Stepp
         <button
           key={step.step}
           className={cn(
-            "flex items-center gap-2 rounded-full border border-border px-3 py-1 text-xs",
+            "flex items-center gap-2 rounded-none border border-border px-3 py-1 text-xs",
             current === step.step
               ? "bg-accent text-white"
               : "bg-surface text-muted",
