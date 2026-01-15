@@ -93,6 +93,12 @@ export default function DiscussionStepPage() {
   const [commentLikeCounts, setCommentLikeCounts] = useState<Record<string, number>>({});
   const [conclusionLikedByUser, setConclusionLikedByUser] = useState<Record<string, boolean>>({});
   const [commentLikedByUser, setCommentLikedByUser] = useState<Record<string, boolean>>({});
+  const [discussionPointLikeCounts, setDiscussionPointLikeCounts] = useState<Record<string, number>>(
+    {}
+  );
+  const [discussionPointLikedByUser, setDiscussionPointLikedByUser] = useState<
+    Record<string, boolean>
+  >({});
   const [fazitError, setFazitError] = useState("");
   const [showOpenQuestions, setShowOpenQuestions] = useState(false);
   const currentPointRef = useRef<string | null>(null);
@@ -730,6 +736,59 @@ export default function DiscussionStepPage() {
   }, [discussionId, commentsByConclusion, step, userId]);
 
   useEffect(() => {
+    if (step !== 4) return;
+    let isMounted = true;
+    const fetchPointLikes = async () => {
+      if (discussionPoints.length === 0) {
+        if (!isMounted) return;
+        setDiscussionPointLikeCounts({});
+        setDiscussionPointLikedByUser({});
+        return;
+      }
+      try {
+        const entries = await Promise.all(
+          discussionPoints.map(async (point) => {
+            const query = new URLSearchParams({
+              discussionPointId: point.id,
+              ...(userId ? { likerUserId: userId } : {})
+            });
+            const response = await fetch(`/api/discussionpoint-likes?${query.toString()}`);
+            const data = await response.json();
+            return [
+              point.id,
+              {
+                count: Number(data.count ?? 0),
+                liked: Boolean(data.liked)
+              }
+            ] as const;
+          })
+        );
+        if (!isMounted) return;
+        const nextCounts = entries.reduce((acc: Record<string, number>, [id, payload]) => {
+          acc[id] = payload.count;
+          return acc;
+        }, {});
+        const nextLiked = entries.reduce((acc: Record<string, boolean>, [id, payload]) => {
+          acc[id] = payload.liked;
+          return acc;
+        }, {});
+        setDiscussionPointLikeCounts(nextCounts);
+        setDiscussionPointLikedByUser(nextLiked);
+      } catch {
+        if (!isMounted) return;
+        setDiscussionPointLikeCounts({});
+        setDiscussionPointLikedByUser({});
+      }
+    };
+    fetchPointLikes();
+    const interval = window.setInterval(fetchPointLikes, 5000);
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+    };
+  }, [discussionPoints, step, userId]);
+
+  useEffect(() => {
     if (!discussionId || !userId || step !== 4) return;
     let isMounted = true;
     fetch(
@@ -845,6 +904,15 @@ export default function DiscussionStepPage() {
   }
 
   async function handleQuestionsSubmit(questions: string[]) {
+    const remainingQuestions = Math.max(questionsCount - userQuestions.length, 0);
+    if (remainingQuestions <= 0) {
+      setStatusMessage("Du hast bereits die maximale Anzahl an Fragen eingereicht.");
+      return;
+    }
+    if (questions.length > remainingQuestions) {
+      setStatusMessage(`Bitte maximal ${remainingQuestions} weitere Fragen einreichen.`);
+      return;
+    }
     if (!discussionId || !userId) {
       setStatusMessage("Fragen konnten nicht gespeichert werden.");
       return;
@@ -1158,6 +1226,45 @@ export default function DiscussionStepPage() {
     }
   }
 
+  async function handleDiscussionPointLikeToggle(point: any) {
+    if (!userId) return;
+    setDiscussionActionError("");
+    const liked = Boolean(discussionPointLikedByUser[point.id]);
+    try {
+      if (liked) {
+        const response = await fetch("/api/discussionpoint-likes", {
+          method: "DELETE",
+          body: JSON.stringify({ likerUserId: userId, discussionPointId: point.id }),
+          headers: { "Content-Type": "application/json" }
+        });
+        if (!response.ok) {
+          throw new Error("unlike_failed");
+        }
+        setDiscussionPointLikedByUser((prev) => ({ ...prev, [point.id]: false }));
+        setDiscussionPointLikeCounts((prev) => ({
+          ...prev,
+          [point.id]: Math.max((prev[point.id] ?? 1) - 1, 0)
+        }));
+      } else {
+        const response = await fetch("/api/discussionpoint-likes", {
+          method: "PUT",
+          body: JSON.stringify({ likerUserId: userId, discussionPointId: point.id }),
+          headers: { "Content-Type": "application/json" }
+        });
+        if (!response.ok) {
+          throw new Error("like_failed");
+        }
+        setDiscussionPointLikedByUser((prev) => ({ ...prev, [point.id]: true }));
+        setDiscussionPointLikeCounts((prev) => ({
+          ...prev,
+          [point.id]: (prev[point.id] ?? 0) + 1
+        }));
+      }
+    } catch {
+      setDiscussionActionError("Zustimmung konnte nicht gespeichert werden.");
+    }
+  }
+
   async function handleConclusionLikeToggle(conclusion: any) {
     if (!userId) return;
     setFazitError("");
@@ -1333,6 +1440,21 @@ export default function DiscussionStepPage() {
   const openDiscussionPoints = discussionPoints.filter((item) => !item.markedAsComplete);
   const completedDiscussionPoints = discussionPoints.filter((item) => item.markedAsComplete);
   const skipVotes = adminParticipants.filter((item) => item.moveOnButton).length;
+  const remainingQuestions = Math.max(questionsCount - userQuestions.length, 0);
+  const sortedOpenDiscussionPoints = [...openDiscussionPoints].sort((left, right) => {
+    const diff =
+      (discussionPointLikeCounts[right.id] ?? 0) -
+      (discussionPointLikeCounts[left.id] ?? 0);
+    if (diff !== 0) return diff;
+    return left.discussionPoint.localeCompare(right.discussionPoint, "de-DE");
+  });
+  const sortedCompletedDiscussionPoints = [...completedDiscussionPoints].sort((left, right) => {
+    const diff =
+      (discussionPointLikeCounts[right.id] ?? 0) -
+      (discussionPointLikeCounts[left.id] ?? 0);
+    if (diff !== 0) return diff;
+    return left.discussionPoint.localeCompare(right.discussionPoint, "de-DE");
+  });
 
   return (
     <div className="container mx-auto space-y-8 pb-20 pt-12">
@@ -1755,16 +1877,22 @@ export default function DiscussionStepPage() {
                 )}
               </CardContent>
             </Card>
-            {!isHost && !isReviewMode && !currentDiscussionPointId && (
+            {!isHost && !isReviewMode && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Fragen sammeln</CardTitle>
+                  <CardTitle>Fragen einreichen</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <QuestionsForm
-                    maxQuestions={questionsCount}
-                    onSubmit={handleQuestionsSubmit}
-                  />
+                  {remainingQuestions > 0 ? (
+                    <QuestionsForm
+                      maxQuestions={remainingQuestions}
+                      onSubmit={handleQuestionsSubmit}
+                    />
+                  ) : (
+                    <p className="text-sm text-muted">
+                      Du hast bereits alle {questionsCount} Fragen eingereicht.
+                    </p>
+                  )}
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Button
                       onClick={() => handleReadyToggle(!isReady)}
@@ -1809,6 +1937,74 @@ export default function DiscussionStepPage() {
                 </CardContent>
               </Card>
             )}
+            <Card>
+              <CardHeader>
+                <CardTitle>Offene Diskussionspunkte</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-muted">
+                {sortedOpenDiscussionPoints.length > 0 ? (
+                  sortedOpenDiscussionPoints.map((point) => (
+                    <div
+                      key={point.id}
+                      className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border bg-bg px-3 py-2"
+                    >
+                      <div className="space-y-1">
+                        <p className="text-ink">{point.discussionPoint}</p>
+                        <p className="text-xs text-muted">
+                          {discussionPointLikeCounts[point.id] ?? 0} Zustimmungen
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant={discussionPointLikedByUser[point.id] ? "outline" : "primary"}
+                        onClick={() => handleDiscussionPointLikeToggle(point)}
+                        disabled={!userId}
+                      >
+                        {discussionPointLikedByUser[point.id]
+                          ? "Gefaellt mir nicht mehr"
+                          : "Gefaellt mir"}
+                      </Button>
+                    </div>
+                  ))
+                ) : (
+                  <p>Noch keine offenen Diskussionspunkte.</p>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Abgeschlossene Diskussionspunkte</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-muted">
+                {sortedCompletedDiscussionPoints.length > 0 ? (
+                  sortedCompletedDiscussionPoints.map((point) => (
+                    <div
+                      key={point.id}
+                      className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border bg-bg px-3 py-2"
+                    >
+                      <div className="space-y-1">
+                        <p className="text-ink">{point.discussionPoint}</p>
+                        <p className="text-xs text-muted">
+                          {discussionPointLikeCounts[point.id] ?? 0} Zustimmungen
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant={discussionPointLikedByUser[point.id] ? "outline" : "primary"}
+                        onClick={() => handleDiscussionPointLikeToggle(point)}
+                        disabled={!userId}
+                      >
+                        {discussionPointLikedByUser[point.id]
+                          ? "Gefaellt mir nicht mehr"
+                          : "Gefaellt mir"}
+                      </Button>
+                    </div>
+                  ))
+                ) : (
+                  <p>Noch keine abgeschlossenen Diskussionspunkte.</p>
+                )}
+              </CardContent>
+            </Card>
           </div>
           <div className="space-y-4">
             {!isHost && (
@@ -1996,6 +2192,9 @@ export default function DiscussionStepPage() {
                             <span className="text-xs text-muted">Punkt {index + 1}</span>
                           </div>
                           <p className="text-ink">{point.discussionPoint}</p>
+                          <p className="text-xs text-muted">
+                            {discussionPointLikeCounts[point.id] ?? 0} Zustimmungen
+                          </p>
                         </div>
                       ))}
                     </div>

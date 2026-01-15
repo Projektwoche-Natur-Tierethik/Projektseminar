@@ -4,6 +4,7 @@ import { prisma } from "@/src/lib/prisma";
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const discussionPointId = String(searchParams.get("discussionPointId") ?? "").trim();
+  const likerUserId = String(searchParams.get("likerUserId") ?? "").trim();
 
   if (!discussionPointId) {
     return NextResponse.json({ error: "Invalid data" }, { status: 400 });
@@ -13,7 +14,20 @@ export async function GET(request: Request) {
     where: { discussionPointId }
   });
 
-  return NextResponse.json({ count });
+  if (!likerUserId) {
+    return NextResponse.json({ count });
+  }
+
+  const existing = await prisma.discussionPointLike.findUnique({
+    where: {
+      likerUserId_discussionPointId: {
+        likerUserId,
+        discussionPointId
+      }
+    }
+  });
+
+  return NextResponse.json({ count, liked: Boolean(existing) });
 }
 
 export async function PUT(request: Request) {
