@@ -29,7 +29,7 @@ export function CardTitle({
 }: HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h3
-      className={cn("font-serif text-lg font-semibold text-ink", className)}
+      className={cn("font-sans text-lg font-semibold text-ink", className)}
       {...props}
     />
   );
