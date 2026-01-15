@@ -1,14 +1,7 @@
 import Link from "next/link";
 import { buttonStyles } from "@/src/components/ui/Button";
 import ThemeToggle from "@/src/components/ui/ThemeToggle";
-
-const navItems = [
-  { label: "Begriffsklärung", href: "/begriffsklaerung" },
-  { label: "Diskussionsassistent", href: "/diskussionsassistent" },
-  { label: "Diskussionsforum", href: "/diskussionsforum" },
-  { label: "Blog", href: "/blog" },
-  { label: "Feedback", href: "/feedback" }
-];
+import { navItems } from "@/src/components/layout/navItems";
 
 export default function Header() {
   return (
@@ -31,14 +24,14 @@ export default function Header() {
         <div className="flex items-center gap-3">
           <ThemeToggle />
           <Link
-            href="/diskussion/erstellen"
+            href="/diskussion/join"
             className={buttonStyles({ variant: "primary", size: "sm" })}
           >
-            Diskussion starten
+            Diskussion beitreten
           </Link>
         </div>
       </div>
-      <div className="container mx-auto flex gap-3 overflow-x-auto pb-3 text-xs md:hidden">
+      <div className="header-subnav container mx-auto flex gap-3 overflow-x-auto pb-3 text-xs md:hidden">
         {navItems.map((item) => (
           <Link
             key={item.href}

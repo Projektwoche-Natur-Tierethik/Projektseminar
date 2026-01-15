@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Header from "@/src/components/layout/Header";
 import Footer from "@/src/components/layout/Footer";
+import RouteClassName from "@/src/components/layout/RouteClassName";
 
 type SiteShellProps = {
   children: ReactNode;
@@ -9,6 +10,7 @@ type SiteShellProps = {
 export default function SiteShell({ children }: SiteShellProps) {
   return (
     <div className="min-h-screen bg-bg text-ink site-bg">
+      <RouteClassName />
       <Header />
       <main className="relative">
         <div className="pointer-events-none absolute inset-0 -z-10 opacity-70">

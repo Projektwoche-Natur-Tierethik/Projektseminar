@@ -21,13 +21,13 @@ export default function AssistantPage() {
           <div className="flex gap-3">
             <Link
               href="/diskussion/erstellen"
-              className={buttonStyles({ variant: "primary", size: "md" })}
+              className={buttonStyles({ variant: "outline", size: "md" })}
             >
               Diskussion erstellen
             </Link>
             <Link
               href="/diskussion/join"
-              className={buttonStyles({ variant: "outline", size: "md" })}
+              className={buttonStyles({ variant: "primary", size: "md" })}
             >
               Diskussion beitreten
             </Link>

@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import WolfButton from "@/src/components/home/WolfButton";
 import { buttonStyles } from "@/src/components/ui/Button";
+import { navItems } from "@/src/components/layout/navItems";
 
 export const metadata = {
   title: "Ethik-Dialog | Start",
@@ -25,6 +26,17 @@ export default function HomePage() {
               sizes="(max-width: 768px) 100vw, 1200px"
             />
             <WolfButton className="wolf-stage__button pointer-events-auto" />
+            <div className="absolute inset-x-0 bottom-0 flex justify-center gap-3 overflow-x-auto px-6 pb-0 text-xs md:hidden pointer-events-auto">
+              {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="whitespace-nowrap rounded-none border border-border px-3 py-1 text-ink/70"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
 

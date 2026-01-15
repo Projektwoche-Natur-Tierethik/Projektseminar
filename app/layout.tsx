@@ -27,7 +27,7 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(function(){try{var theme=localStorage.getItem('theme');if(theme!=='light'&&theme!=='dark'){return;}var root=document.documentElement;root.classList.remove('theme-light','theme-dark');root.classList.add('theme-'+theme);}catch(e){}})();"
+              "(function(){try{var root=document.documentElement;var path=location.pathname||'';if(path==='/'){root.classList.add('route-start');}else{root.classList.remove('route-start');}var theme=localStorage.getItem('theme');if(theme!=='light'&&theme!=='dark'){return;}root.classList.remove('theme-light','theme-dark');root.classList.add('theme-'+theme);}catch(e){}})();"
           }}
         />
         <SiteShell>{children}</SiteShell>
