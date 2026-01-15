@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import ValueSelector from "@/src/components/discussion/ValueSelector";
@@ -75,9 +75,16 @@ export default function DiscussionStepPage() {
   const [normSaving, setNormSaving] = useState(false);
   const [userNorms, setUserNorms] = useState<any[]>([]);
   const [adminNorms, setAdminNorms] = useState<any[]>([]);
-  const [adminQuestions, setAdminQuestions] = useState<any[]>([]);
+  const [discussionPoints, setDiscussionPoints] = useState<any[]>([]);
   const [userQuestions, setUserQuestions] = useState<any[]>([]);
   const [userValueIds, setUserValueIds] = useState<string[]>([]);
+  const [discussionTheme, setDiscussionTheme] = useState("");
+  const [currentDiscussionPointId, setCurrentDiscussionPointId] = useState<string | null>(null);
+  const [participantId, setParticipantId] = useState<string | null>(null);
+  const [hasSkipped, setHasSkipped] = useState(false);
+  const [discussionActionError, setDiscussionActionError] = useState("");
+  const [discussionActionLoading, setDiscussionActionLoading] = useState(false);
+  const currentPointRef = useRef<string | null>(null);
   const valuesCount = settings.valuesCount;
   const questionsCount = settings.questionsCount;
   const allParticipantsReady =
@@ -182,6 +189,8 @@ export default function DiscussionStepPage() {
         if (!isMounted) return;
         setSettings(normalizeDiscussionSettings(data.discussion));
         setDiscussionId(data.discussion?.id ?? null);
+        setDiscussionTheme(data.discussion?.discussionTheme ?? "");
+        setCurrentDiscussionPointId(data.discussion?.currentDiscussionPointId ?? null);
         setSettingsLoaded(true);
       })
       .catch(() => {
@@ -246,7 +255,10 @@ export default function DiscussionStepPage() {
       .then((data) => {
         if (!isMounted) return;
         const byLabel = (data.values ?? []).reduce((acc: Record<string, string>, item: any) => {
-          acc[item.value] = item.id;
+          const rawId = item?.valueId ?? item?.id;
+          if (item?.value !== undefined && rawId !== undefined) {
+            acc[item.value] = String(rawId);
+          }
           return acc;
         }, {});
         setValueIdByLabel(byLabel);
@@ -432,7 +444,7 @@ export default function DiscussionStepPage() {
   }, [discussionId, isHost, step]);
 
   useEffect(() => {
-    if (!discussionId || !isHost || step !== 4) return;
+    if (!discussionId || step !== 4) return;
     let isMounted = true;
     const fetchQuestions = () => {
       fetch(
@@ -441,11 +453,11 @@ export default function DiscussionStepPage() {
         .then((res) => res.json())
         .then((data) => {
           if (!isMounted) return;
-          setAdminQuestions(Array.isArray(data.items) ? data.items : []);
+          setDiscussionPoints(Array.isArray(data.items) ? data.items : []);
         })
         .catch(() => {
           if (!isMounted) return;
-          setAdminQuestions([]);
+          setDiscussionPoints([]);
         });
     };
     fetchQuestions();
@@ -454,7 +466,68 @@ export default function DiscussionStepPage() {
       isMounted = false;
       window.clearInterval(interval);
     };
-  }, [discussionId, isHost, step]);
+  }, [discussionId, step]);
+
+  useEffect(() => {
+    if (!discussionId || step !== 4) return;
+    let isMounted = true;
+    const fetchDiscussionState = () => {
+      fetch(`/api/discussions?discussionId=${encodeURIComponent(discussionId)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (!isMounted) return;
+          setDiscussionTheme(data.discussion?.discussionTheme ?? "");
+          setCurrentDiscussionPointId(data.discussion?.currentDiscussionPointId ?? null);
+        })
+        .catch(() => {
+          if (!isMounted) return;
+        });
+    };
+    fetchDiscussionState();
+    const interval = window.setInterval(fetchDiscussionState, 3000);
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+    };
+  }, [discussionId, step]);
+
+  useEffect(() => {
+    if (!discussionId || !userId || step !== 4) return;
+    let isMounted = true;
+    fetch(
+      `/api/participants?discussionId=${encodeURIComponent(
+        discussionId
+      )}&userId=${encodeURIComponent(userId)}`
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        if (!isMounted) return;
+        const participant = Array.isArray(data.participants) ? data.participants[0] : null;
+        setParticipantId(participant?.id ?? null);
+        setHasSkipped(Boolean(participant?.moveOnButton));
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setParticipantId(null);
+        setHasSkipped(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [discussionId, userId, step]);
+
+  useEffect(() => {
+    if (step !== 4) return;
+    if (currentPointRef.current === currentDiscussionPointId) return;
+    currentPointRef.current = currentDiscussionPointId ?? null;
+    setHasSkipped(false);
+    if (!participantId || !currentDiscussionPointId) return;
+    fetch("/api/participants", {
+      method: "PUT",
+      body: JSON.stringify({ participantId, moveOnButton: false }),
+      headers: { "Content-Type": "application/json" }
+    }).catch(() => {});
+  }, [currentDiscussionPointId, participantId, step]);
 
   useEffect(() => {
     if (!code || !name || !step) return;
@@ -603,25 +676,12 @@ export default function DiscussionStepPage() {
 
   async function handleFrameToggle(label: string, nextValue: boolean) {
     if (!discussionId || !adminUserId) return;
-    let valueId = valueIdByLabel[label];
+    const valueId = valueIdByLabel[label];
     setAdminSaving(valueId ?? label);
     setAdminError("");
     try {
       if (!valueId) {
-        const created = await fetch("/api/values", {
-          method: "POST",
-          body: JSON.stringify({ value: label }),
-          headers: { "Content-Type": "application/json" }
-        });
-        if (!created.ok) {
-          throw new Error("create_value_failed");
-        }
-        const data = await created.json();
-        valueId = data.value?.id ?? null;
-        if (!valueId) {
-          throw new Error("missing_value_id");
-        }
-        setValueIdByLabel((prev) => ({ ...prev, [label]: valueId as string }));
+        throw new Error("missing_value_id");
       }
 
       if (!frameExists[valueId]) {
@@ -669,6 +729,125 @@ export default function DiscussionStepPage() {
     const data = await response.json();
     setIsReady(Boolean(data.ready));
     setReadyUpdatedAt(data.updatedAt ?? null);
+  }
+
+  async function resetSkipVotes() {
+    if (!adminParticipants.length) return;
+    await Promise.all(
+      adminParticipants.map((participant) =>
+        fetch("/api/participants", {
+          method: "PUT",
+          body: JSON.stringify({ participantId: participant.id, moveOnButton: false }),
+          headers: { "Content-Type": "application/json" }
+        })
+      )
+    );
+    setAdminParticipants((prev) =>
+      prev.map((participant) => ({ ...participant, moveOnButton: false }))
+    );
+  }
+
+  async function handleStartDiscussionPoint(pointId: string) {
+    if (!discussionId || !adminUserId) return;
+    setDiscussionActionLoading(true);
+    setDiscussionActionError("");
+    try {
+      const response = await fetch("/api/discussions", {
+        method: "PUT",
+        body: JSON.stringify({
+          discussionId,
+          currentDiscussionPointId: pointId,
+          adminUserId
+        }),
+        headers: { "Content-Type": "application/json" }
+      });
+      if (!response.ok) {
+        throw new Error("start_failed");
+      }
+      setCurrentDiscussionPointId(pointId);
+      await resetSkipVotes();
+    } catch {
+      setDiscussionActionError("Frage konnte nicht gestartet werden.");
+    } finally {
+      setDiscussionActionLoading(false);
+    }
+  }
+
+  async function handleCompleteDiscussionPoint() {
+    if (!currentDiscussionPointId || !adminUserId || !discussionId) return;
+    setDiscussionActionLoading(true);
+    setDiscussionActionError("");
+    try {
+      const response = await fetch("/api/diskussion/diskussionspunkte", {
+        method: "PUT",
+        body: JSON.stringify({
+          discussionPointId: currentDiscussionPointId,
+          markedAsComplete: true,
+          adminUserId
+        }),
+        headers: { "Content-Type": "application/json" }
+      });
+      if (!response.ok) {
+        throw new Error("complete_failed");
+      }
+      const clearResponse = await fetch("/api/discussions", {
+        method: "PUT",
+        body: JSON.stringify({
+          discussionId,
+          currentDiscussionPointId: null,
+          adminUserId
+        }),
+        headers: { "Content-Type": "application/json" }
+      });
+      if (!clearResponse.ok) {
+        throw new Error("clear_failed");
+      }
+      setCurrentDiscussionPointId(null);
+      await resetSkipVotes();
+    } catch {
+      setDiscussionActionError("Frage konnte nicht beendet werden.");
+    } finally {
+      setDiscussionActionLoading(false);
+    }
+  }
+
+  async function handleSkipToggle(nextValue: boolean) {
+    if (!participantId) return;
+    setDiscussionActionError("");
+    try {
+      const response = await fetch("/api/participants", {
+        method: "PUT",
+        body: JSON.stringify({ participantId, moveOnButton: nextValue }),
+        headers: { "Content-Type": "application/json" }
+      });
+      if (!response.ok) {
+        throw new Error("skip_failed");
+      }
+      setHasSkipped(nextValue);
+    } catch {
+      setDiscussionActionError("Status konnte nicht gespeichert werden.");
+    }
+  }
+
+  async function handleFinishDiscussion() {
+    if (!code || !name) return;
+    setDiscussionActionLoading(true);
+    setDiscussionActionError("");
+    try {
+      const response = await fetch("/api/diskussion/control", {
+        method: "POST",
+        body: JSON.stringify({ code, name, action: "finish" }),
+        headers: { "Content-Type": "application/json" }
+      });
+      if (!response.ok) {
+        throw new Error("finish_failed");
+      }
+      router.push(`/diskussion/auswertung/${code}`);
+    } catch {
+      setDiscussionActionError("Auswertung konnte nicht freigegeben werden.");
+    } finally {
+      setDiscussionActionLoading(false);
+    }
   }
 
   if (!name) {
@@ -753,6 +932,12 @@ export default function DiscussionStepPage() {
     step === 4
       ? `Stelle bis zu ${questionsCount} Fragen, die du gerne diskutieren moechtest.`
       : stepData.prompt;
+
+  const activeDiscussionPoint = discussionPoints.find(
+    (item) => item.id === currentDiscussionPointId
+  );
+  const openDiscussionPoints = discussionPoints.filter((item) => !item.markedAsComplete);
+  const skipVotes = adminParticipants.filter((item) => item.moveOnButton).length;
 
   return (
     <div className="container mx-auto space-y-8 pb-20 pt-12">
@@ -1162,36 +1347,74 @@ export default function DiscussionStepPage() {
         </div>
       ) : step === 4 ? (
         <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
-          {!isHost && !isReviewMode && (
+          <div className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Diskussionsfragen</CardTitle>
+                <CardTitle>Oberthema der Diskussion</CardTitle>
               </CardHeader>
-              <CardContent>
-                <QuestionsForm
-                  maxQuestions={questionsCount}
-                  onSubmit={handleQuestionsSubmit}
-                />
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button
-                    onClick={() => handleReadyToggle(!isReady)}
-                    variant={isReady ? "outline" : "primary"}
-                  >
-                    {isReady ? "Nicht bereit" : "Bereit melden"}
-                  </Button>
-                </div>
-                {statusMessage && (
-                  <p className="mt-4 text-sm text-muted">{statusMessage}</p>
-                )}
-                {readyUpdatedAt && (
-                  <p className="mt-2 text-xs text-muted">
-                    Status zuletzt geaendert:{" "}
-                    {new Date(readyUpdatedAt).toLocaleString("de-DE")}
-                  </p>
+              <CardContent className="text-sm text-muted">
+                {discussionTheme ? (
+                  <p className="text-ink">{discussionTheme}</p>
+                ) : (
+                  <p>Noch kein Thema hinterlegt.</p>
                 )}
               </CardContent>
             </Card>
-          )}
+            {!isHost && !isReviewMode && !currentDiscussionPointId && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Fragen sammeln</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <QuestionsForm
+                    maxQuestions={questionsCount}
+                    onSubmit={handleQuestionsSubmit}
+                  />
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                      onClick={() => handleReadyToggle(!isReady)}
+                      variant={isReady ? "outline" : "primary"}
+                    >
+                      {isReady ? "Nicht bereit" : "Bereit melden"}
+                    </Button>
+                  </div>
+                  {statusMessage && (
+                    <p className="mt-4 text-sm text-muted">{statusMessage}</p>
+                  )}
+                  {readyUpdatedAt && (
+                    <p className="mt-2 text-xs text-muted">
+                      Status zuletzt geaendert:{" "}
+                      {new Date(readyUpdatedAt).toLocaleString("de-DE")}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+            {!isHost && currentDiscussionPointId && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Aktuelle Frage</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-ink">
+                    {activeDiscussionPoint?.discussionPoint ?? "Frage wird geladen..."}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      onClick={() => handleSkipToggle(!hasSkipped)}
+                      variant={hasSkipped ? "outline" : "primary"}
+                      disabled={discussionActionLoading}
+                    >
+                      {hasSkipped ? "Weiter diskutieren" : "Frage ueberspringen"}
+                    </Button>
+                  </div>
+                  {discussionActionError && (
+                    <p className="text-xs text-accent2">{discussionActionError}</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
           <div className="space-y-4">
             {!isHost && (
               <Card>
@@ -1220,8 +1443,8 @@ export default function DiscussionStepPage() {
                   <CardTitle>Fragen der Teilnehmenden</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm text-muted">
-                  {adminQuestions.length > 0 ? (
-                    adminQuestions.map((item) => (
+                  {discussionPoints.length > 0 ? (
+                    discussionPoints.map((item) => (
                       <div
                         key={item.id}
                         className="rounded-xl border border-border bg-bg px-3 py-2"
@@ -1234,6 +1457,82 @@ export default function DiscussionStepPage() {
                     ))
                   ) : (
                     <p>Noch keine Fragen erfasst.</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+            {isHost && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Diskussion steuern</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm text-muted">
+                  {currentDiscussionPointId ? (
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-xs text-muted">Aktuelle Frage</p>
+                        <p className="text-ink">
+                          {activeDiscussionPoint?.discussionPoint ?? "Frage wird geladen..."}
+                        </p>
+                      </div>
+                      <p className="text-xs text-muted">
+                        Ueberspringen-Stimmen: {skipVotes} / {adminParticipants.length}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          onClick={handleCompleteDiscussionPoint}
+                          disabled={discussionActionLoading}
+                        >
+                          Frage beenden
+                        </Button>
+                        <Button
+                          onClick={handleFinishDiscussion}
+                          variant="outline"
+                          disabled={discussionActionLoading}
+                        >
+                          Diskussion beenden
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted">
+                        Waehle eine Frage aus dem Pool aus, um die Diskussion zu starten.
+                      </p>
+                      <div className="space-y-2">
+                        {openDiscussionPoints.length > 0 ? (
+                          openDiscussionPoints.map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-bg px-3 py-2"
+                            >
+                              <span className="text-ink">{item.discussionPoint}</span>
+                              <Button
+                                size="sm"
+                                onClick={() => handleStartDiscussionPoint(item.id)}
+                                disabled={discussionActionLoading}
+                              >
+                                Frage starten
+                              </Button>
+                            </div>
+                          ))
+                        ) : (
+                          <p>Noch keine offenen Fragen verfuegbar.</p>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          onClick={handleFinishDiscussion}
+                          variant="outline"
+                          disabled={discussionActionLoading}
+                        >
+                          Diskussion beenden
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  {discussionActionError && (
+                    <p className="text-xs text-accent2">{discussionActionError}</p>
                   )}
                 </CardContent>
               </Card>
