@@ -100,6 +100,26 @@ h4 {
   padding: 0;
 }
 
+.wolf-stage {
+  position: relative;
+  width: min(100%, 1200px);
+  aspect-ratio: 5120 / 2819;
+  height: auto;
+}
+
+.wolf-stage__image {
+  object-fit: contain;
+}
+
+.wolf-stage__button {
+  position: absolute;
+  left: 60.1%;
+  top: 57.4%;
+  width: 31.1%;
+  height: 68.3%;
+  transform: translate(-50%, -50%);
+}
+
 .wolf-button::before {
   content: "";
   position: absolute;

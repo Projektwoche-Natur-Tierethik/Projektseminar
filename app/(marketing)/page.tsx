@@ -15,22 +15,16 @@ export default function HomePage() {
       <section className="relative mx-auto flex min-h-[70vh] max-w-6xl items-center px-6 pb-16 pt-12 sm:px-10">
         <div className="absolute inset-0 -z-10 bg-gradient-to-r from-bg/95 via-bg/70 to-transparent pointer-events-none" />
         <div className="absolute inset-0 z-0 flex items-center justify-center">
-          <div
-            className="relative h-full max-h-[80vh] w-auto max-w-full pointer-events-none"
-            style={{ aspectRatio: "5120 / 2819" }}
-          >
+          <div className="wolf-stage pointer-events-none">
             <Image
               src="/medien/startseite/wolfHintergrund.jpg"
               alt="Hintergrundbild mit Wolf und Baumstamm"
               fill
               priority
-              className="object-contain"
+              className="wolf-stage__image"
               sizes="(max-width: 768px) 100vw, 1200px"
             />
-            <WolfButton
-              className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-auto"
-              style={{ left: "59%", top: "54%", width: "199px", height: "233px" }}
-            />
+            <WolfButton className="wolf-stage__button pointer-events-auto" />
           </div>
         </div>
 
