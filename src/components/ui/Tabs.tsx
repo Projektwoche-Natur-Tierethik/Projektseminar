@@ -18,7 +18,7 @@ export function Tab({
   return (
     <button
       className={cn(
-        "rounded-full border border-border px-3 py-1 text-xs transition",
+        "rounded-none border border-border px-3 py-1 text-xs transition",
         active ? "bg-accent text-white" : "bg-surface text-muted",
         className
       )}

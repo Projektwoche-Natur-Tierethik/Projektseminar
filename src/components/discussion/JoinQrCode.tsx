@@ -68,7 +68,7 @@ export default function JoinQrCode({ code }: JoinQrCodeProps) {
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              className="rounded-full border border-border px-4 py-2 text-sm text-ink"
+              className="rounded-none border border-border px-4 py-2 text-sm text-ink"
             >
               Schliessen
             </button>

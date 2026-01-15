@@ -16,7 +16,7 @@ const config: Config = {
       },
       borderRadius: {
         xl: "var(--radius)",
-        "2xl": "calc(var(--radius) + 6px)"
+        "2xl": "var(--radius)"
       },
       fontFamily: {
         sans: "var(--font-sans)",
