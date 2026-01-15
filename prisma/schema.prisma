@@ -18,6 +18,8 @@ model User {
   discussionPointConclusionLikes DiscussionPointConclusionLike[] @relation("DiscussionPointConclusionLiker")
   discussionPointConclusionAuthorLikes DiscussionPointConclusionLike[] @relation("DiscussionPointConclusionAuthor")
   participantConclusionLikes ParticipantConclusionLike[]
+  comments       Comment[]
+  commentLikes   CommentLike[]
   userValues     UserValue[]
   norms          Norm[]
 
@@ -55,6 +57,7 @@ model Participant {
   user           User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
   discussion     Discussion                    @relation(fields: [discussionId], references: [id], onDelete: Cascade)
   participantConclusionLikes ParticipantConclusionLike[]
+  conclusionComments CommentOnConclusionDiscussion[]
 
   @@unique([userId, discussionId])
   @@map("participants")
@@ -82,6 +85,7 @@ model DiscussionPointConclusion {
   discussionPoint  DiscussionPoint            @relation(fields: [discussionPointId], references: [id], onDelete: Cascade)
   user             User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
   likes            DiscussionPointConclusionLike[]
+  comments         CommentOnConclusionDiscussionPoint[]
 
   @@unique([discussionPointId, userId])
   @@map("conclusions_discussionpoints")
@@ -109,6 +113,63 @@ model ParticipantConclusionLike {
 
   @@id([likerUserId, participantId])
   @@map("likes_discussion_conclusion")
+}
+
+model Comment {
+  id              String   @id @default(cuid()) @map("comment_id")
+  writtenByUserId String   @map("written_by_uid")
+  comment         String
+  time            DateTime @default(now())
+  edited          Boolean  @default(false)
+  writtenBy       User     @relation(fields: [writtenByUserId], references: [id], onDelete: Cascade)
+  onDiscussionPointConclusions CommentOnConclusionDiscussionPoint[]
+  onParticipantConclusions     CommentOnConclusionDiscussion[]
+  onComments       CommentOnComment[] @relation("CommentOnCommentTarget")
+  replies          CommentOnComment[] @relation("CommentOnCommentReply")
+  likes            CommentLike[]
+
+  @@map("comments")
+}
+
+model CommentOnConclusionDiscussionPoint {
+  commentId                String @map("comment_id")
+  discussionPointConclusionId String @map("cdp_id")
+  comment                  Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  discussionPointConclusion DiscussionPointConclusion @relation(fields: [discussionPointConclusionId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, discussionPointConclusionId])
+  @@map("comment_on_conclusion_discussio_point")
+}
+
+model CommentOnConclusionDiscussion {
+  commentId     String @map("comment_id")
+  participantId String @map("participants_id_that_wrote_conclusion")
+  comment       Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, participantId])
+  @@map("comment_on_conclusion_discussio")
+}
+
+model CommentOnComment {
+  commentedOnId String @map("commented_on_id")
+  newCommentId  String @map("new_comment_id")
+  commentedOn   Comment @relation("CommentOnCommentTarget", fields: [commentedOnId], references: [id], onDelete: Cascade)
+  newComment    Comment @relation("CommentOnCommentReply", fields: [newCommentId], references: [id], onDelete: Cascade)
+
+  @@id([commentedOnId, newCommentId])
+  @@map("comment_on_comment_rec")
+}
+
+model CommentLike {
+  likerUserId String @map("user_likes_id")
+  commentId   String @map("comment_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  liker       User   @relation(fields: [likerUserId], references: [id], onDelete: Cascade)
+  comment     Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@id([likerUserId, commentId])
+  @@map("likes_comments")
 }
 
 model FrameOfValue {
