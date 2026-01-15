@@ -30,9 +30,6 @@ export default function HomePage() {
 
         <div className="relative z-10 w-full max-w-md space-y-6 border border-border bg-surface/70 p-6 backdrop-blur-sm">
           <div className="space-y-3">
-            <p className="text-xs uppercase tracking-[0.3em] text-muted">
-              Seminar Anwendungsethik
-            </p>
             <h1 className="text-4xl font-semibold leading-tight text-ink md:text-5xl">
               Diskursraum für Umwelt- und Tierethik
             </h1>
@@ -42,22 +39,22 @@ export default function HomePage() {
           </div>
           <div className="flex flex-col gap-2">
             <Link
-              href="/diskussion/erstellen"
+              href="/begriffsklaerung"
               className={buttonStyles({ variant: "primary", size: "md", className: "w-full justify-start" })}
             >
-              Diskussion starten
+              Begriffsklärung
             </Link>
             <Link
               href="/diskussionsassistent"
-              className={buttonStyles({ variant: "outline", size: "md", className: "w-full justify-start" })}
+              className={buttonStyles({ variant: "primary", size: "md", className: "w-full justify-start" })}
             >
               Diskussionsassistent
             </Link>
             <Link
-              href="/begriffsklaerung"
+              href="/blog"
               className={buttonStyles({ variant: "outline", size: "md", className: "w-full justify-start" })}
             >
-              Begriffsklärung
+              Blog
             </Link>
           </div>
         </div>

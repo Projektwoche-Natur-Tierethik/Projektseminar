@@ -16,9 +16,7 @@ export default function WolfButton({ className, style }: WolfButtonProps) {
   function handleClick() {
     if (isAnimating) return;
     setIsAnimating(true);
-    window.setTimeout(() => {
-      router.push("/diskussionsassistent");
-    }, 2000);
+    router.push("/diskussionsassistent");
   }
 
   return (
