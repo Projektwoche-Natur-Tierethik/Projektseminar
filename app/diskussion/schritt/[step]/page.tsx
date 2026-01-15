@@ -84,6 +84,13 @@ export default function DiscussionStepPage() {
   const [hasSkipped, setHasSkipped] = useState(false);
   const [discussionActionError, setDiscussionActionError] = useState("");
   const [discussionActionLoading, setDiscussionActionLoading] = useState(false);
+  const [conclusionsByPoint, setConclusionsByPoint] = useState<Record<string, any[]>>({});
+  const [commentsByConclusion, setCommentsByConclusion] = useState<Record<string, any[]>>({});
+  const [userDirectory, setUserDirectory] = useState<Record<string, any>>({});
+  const [conclusionDrafts, setConclusionDrafts] = useState<Record<string, string>>({});
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [fazitError, setFazitError] = useState("");
+  const [showOpenQuestions, setShowOpenQuestions] = useState(false);
   const currentPointRef = useRef<string | null>(null);
   const valuesCount = settings.valuesCount;
   const questionsCount = settings.questionsCount;
@@ -444,7 +451,7 @@ export default function DiscussionStepPage() {
   }, [discussionId, isHost, step]);
 
   useEffect(() => {
-    if (!discussionId || step !== 4) return;
+    if (!discussionId || (step !== 4 && step !== 5)) return;
     let isMounted = true;
     const fetchQuestions = () => {
       fetch(
@@ -490,6 +497,122 @@ export default function DiscussionStepPage() {
       window.clearInterval(interval);
     };
   }, [discussionId, step]);
+
+  useEffect(() => {
+    if (!discussionId || step !== 5) return;
+    let isMounted = true;
+    fetch("/api/users")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!isMounted) return;
+        const directory = (data.users ?? []).reduce((acc: Record<string, any>, user: any) => {
+          if (user?.id) {
+            acc[user.id] = user;
+          }
+          return acc;
+        }, {});
+        setUserDirectory(directory);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setUserDirectory({});
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [discussionId, step]);
+
+  useEffect(() => {
+    if (!discussionId || step !== 5) return;
+    let isMounted = true;
+    const fetchConclusions = async () => {
+      const completed = discussionPoints.filter((item) => item.markedAsComplete);
+      if (completed.length === 0) {
+        if (!isMounted) return;
+        setConclusionsByPoint({});
+        return;
+      }
+      try {
+        const entries = await Promise.all(
+          completed.map(async (item) => {
+            const response = await fetch(
+              `/api/discussionpoint-conclusions?discussionPointId=${encodeURIComponent(
+                item.id
+              )}`
+            );
+            const data = await response.json();
+            return [item.id, Array.isArray(data.conclusions) ? data.conclusions : []] as const;
+          })
+        );
+        if (!isMounted) return;
+        const next = entries.reduce((acc: Record<string, any[]>, [id, conclusions]) => {
+          acc[id] = conclusions;
+          return acc;
+        }, {});
+        setConclusionsByPoint(next);
+      } catch {
+        if (!isMounted) return;
+        setConclusionsByPoint({});
+      }
+    };
+    fetchConclusions();
+    const interval = window.setInterval(fetchConclusions, 5000);
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+    };
+  }, [discussionId, discussionPoints, step]);
+
+  useEffect(() => {
+    if (!discussionId || step !== 5) return;
+    let isMounted = true;
+    const fetchComments = async () => {
+      const allConclusions = Object.values(conclusionsByPoint).flat();
+      if (allConclusions.length === 0) {
+        if (!isMounted) return;
+        setCommentsByConclusion({});
+        return;
+      }
+      try {
+        const entries = await Promise.all(
+          allConclusions.map(async (conclusion) => {
+            const response = await fetch(
+              `/api/comment-on-conclusion-discussionpoints?discussionPointConclusionId=${encodeURIComponent(
+                conclusion.id
+              )}`
+            );
+            const data = await response.json();
+            const links = Array.isArray(data.links) ? data.links : [];
+            const comments = await Promise.all(
+              links.map(async (link: any) => {
+                const commentResponse = await fetch(
+                  `/api/comments?commentId=${encodeURIComponent(link.commentId)}`
+                );
+                const commentData = await commentResponse.json();
+                return Array.isArray(commentData.comments) ? commentData.comments[0] : null;
+              })
+            );
+            return [conclusion.id, comments.filter(Boolean)] as const;
+          })
+        );
+        if (!isMounted) return;
+        const next = entries.reduce((acc: Record<string, any[]>, [id, comments]) => {
+          acc[id] = comments;
+          return acc;
+        }, {});
+        setCommentsByConclusion(next);
+      } catch {
+        if (!isMounted) return;
+        setCommentsByConclusion({});
+      }
+    };
+    fetchComments();
+    const interval = window.setInterval(fetchComments, 5000);
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+    };
+  }, [discussionId, conclusionsByPoint, step]);
 
   useEffect(() => {
     if (!discussionId || !userId || step !== 4) return;
@@ -850,6 +973,75 @@ export default function DiscussionStepPage() {
     }
   }
 
+  async function handleConclusionSubmit(pointId: string) {
+    if (!userId) return;
+    const text = (conclusionDrafts[pointId] ?? "").trim();
+    if (!text) {
+      setFazitError("Bitte ein Fazit eingeben.");
+      return;
+    }
+    setFazitError("");
+    try {
+      const response = await fetch("/api/discussionpoint-conclusions", {
+        method: "POST",
+        body: JSON.stringify({ discussionPointId: pointId, userId, conclusion: text }),
+        headers: { "Content-Type": "application/json" }
+      });
+      if (!response.ok) {
+        throw new Error("conclusion_failed");
+      }
+      const data = await response.json();
+      const created = data.conclusion;
+      setConclusionsByPoint((prev) => ({
+        ...prev,
+        [pointId]: [...(prev[pointId] ?? []), created]
+      }));
+      setConclusionDrafts((prev) => ({ ...prev, [pointId]: "" }));
+    } catch {
+      setFazitError("Fazit konnte nicht gespeichert werden.");
+    }
+  }
+
+  async function handleCommentSubmit(conclusionId: string) {
+    if (!userId) return;
+    const text = (commentDrafts[conclusionId] ?? "").trim();
+    if (!text) {
+      setFazitError("Bitte einen Kommentar eingeben.");
+      return;
+    }
+    setFazitError("");
+    try {
+      const commentResponse = await fetch("/api/comments", {
+        method: "POST",
+        body: JSON.stringify({ writtenByUserId: userId, comment: text }),
+        headers: { "Content-Type": "application/json" }
+      });
+      if (!commentResponse.ok) {
+        throw new Error("comment_failed");
+      }
+      const commentData = await commentResponse.json();
+      const comment = commentData.comment;
+      const linkResponse = await fetch("/api/comment-on-conclusion-discussionpoints", {
+        method: "POST",
+        body: JSON.stringify({
+          commentId: comment.id,
+          discussionPointConclusionId: conclusionId
+        }),
+        headers: { "Content-Type": "application/json" }
+      });
+      if (!linkResponse.ok) {
+        throw new Error("link_failed");
+      }
+      setCommentsByConclusion((prev) => ({
+        ...prev,
+        [conclusionId]: [...(prev[conclusionId] ?? []), comment]
+      }));
+      setCommentDrafts((prev) => ({ ...prev, [conclusionId]: "" }));
+    } catch {
+      setFazitError("Kommentar konnte nicht gespeichert werden.");
+    }
+  }
+
   if (!name) {
     return (
       <div className="container mx-auto pt-12">
@@ -937,6 +1129,7 @@ export default function DiscussionStepPage() {
     (item) => item.id === currentDiscussionPointId
   );
   const openDiscussionPoints = discussionPoints.filter((item) => !item.markedAsComplete);
+  const completedDiscussionPoints = discussionPoints.filter((item) => item.markedAsComplete);
   const skipVotes = adminParticipants.filter((item) => item.moveOnButton).length;
 
   return (
@@ -1567,6 +1760,213 @@ export default function DiscussionStepPage() {
                 </CardContent>
               </Card>
             )}
+          </div>
+        </div>
+      ) : step === 5 ? (
+        <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Wertekatalog</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted">
+                {selectedCatalogValues.length > 0 ? (
+                  <p className="text-ink">{selectedCatalogValues.join(", ")}</p>
+                ) : (
+                  <p>Noch kein Wertekatalog festgelegt.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Zeitstrahl der Diskussion</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted">
+                {completedDiscussionPoints.length > 0 ? (
+                  <div className="relative overflow-x-auto pb-2">
+                    <div className="absolute left-0 right-0 top-5 h-px bg-border" />
+                    <div className="relative flex min-w-full gap-6 pb-2">
+                      {completedDiscussionPoints.map((point, index) => (
+                        <div key={point.id} className="min-w-[220px] space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="h-3 w-3 rounded-full bg-primary" />
+                            <span className="text-xs text-muted">Punkt {index + 1}</span>
+                          </div>
+                          <p className="text-ink">{point.discussionPoint}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p>Noch keine abgeschlossenen Diskussionspunkte.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Fazit zu Diskussionspunkten</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm text-muted">
+                {completedDiscussionPoints.length > 0 ? (
+                  completedDiscussionPoints.map((point) => {
+                    const pointConclusions = conclusionsByPoint[point.id] ?? [];
+                    const ownConclusion = pointConclusions.find(
+                      (item) => item.userId === userId
+                    );
+                    return (
+                      <div
+                        key={point.id}
+                        className="space-y-4 rounded-xl border border-border bg-bg p-4"
+                      >
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted">Diskussionspunkt</p>
+                          <p className="text-ink">{point.discussionPoint}</p>
+                        </div>
+
+                        {ownConclusion ? (
+                          <div className="rounded-lg border border-border bg-surface px-3 py-2">
+                            <p className="text-xs text-muted">Dein Fazit</p>
+                            <p className="text-ink">{ownConclusion.conclusion}</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-ink">Dein Fazit</label>
+                            <textarea
+                              rows={3}
+                              className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-ring"
+                              placeholder="Formuliere dein Fazit..."
+                              value={conclusionDrafts[point.id] ?? ""}
+                              onChange={(event) =>
+                                setConclusionDrafts((prev) => ({
+                                  ...prev,
+                                  [point.id]: event.target.value
+                                }))
+                              }
+                            />
+                            <Button onClick={() => handleConclusionSubmit(point.id)}>
+                              Fazit speichern
+                            </Button>
+                          </div>
+                        )}
+
+                        <div className="space-y-3">
+                          <p className="text-xs text-muted">Fazit der Teilnehmenden</p>
+                          {pointConclusions.length > 0 ? (
+                            pointConclusions.map((conclusion) => {
+                              const comments = commentsByConclusion[conclusion.id] ?? [];
+                              return (
+                                <div
+                                  key={conclusion.id}
+                                  className="space-y-3 rounded-lg border border-border bg-surface p-3"
+                                >
+                                  <div className="space-y-1">
+                                    <p className="text-ink">{conclusion.conclusion}</p>
+                                    <p className="text-xs text-muted">
+                                      {userDirectory[conclusion.userId]?.name ?? "Unbekannt"}
+                                    </p>
+                                  </div>
+                                  <div className="space-y-2">
+                                    {comments.length > 0 ? (
+                                      comments.map((comment) => (
+                                        <div
+                                          key={comment.id}
+                                          className="rounded-md border border-border bg-bg px-3 py-2"
+                                        >
+                                          <p className="text-sm text-ink">{comment.comment}</p>
+                                          <p className="text-xs text-muted">
+                                            {userDirectory[comment.writtenByUserId]?.name ??
+                                              "Unbekannt"}{" "}
+                                            {comment.time
+                                              ? `· ${new Date(comment.time).toLocaleString(
+                                                  "de-DE"
+                                                )}`
+                                              : ""}
+                                          </p>
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <p className="text-xs text-muted">
+                                        Noch keine Kommentare.
+                                      </p>
+                                    )}
+                                    <div className="space-y-2">
+                                      <label className="text-xs font-medium text-ink">
+                                        Kommentar
+                                      </label>
+                                      <textarea
+                                        rows={2}
+                                        className="w-full rounded-xl border border-border bg-bg px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-ring"
+                                        placeholder="Kommentar verfassen..."
+                                        value={commentDrafts[conclusion.id] ?? ""}
+                                        onChange={(event) =>
+                                          setCommentDrafts((prev) => ({
+                                            ...prev,
+                                            [conclusion.id]: event.target.value
+                                          }))
+                                        }
+                                      />
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleCommentSubmit(conclusion.id)}
+                                      >
+                                        Kommentar senden
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <p>Noch keine Fazits erfasst.</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p>Noch keine abgeschlossenen Diskussionspunkte vorhanden.</p>
+                )}
+                {fazitError && <p className="text-xs text-accent2">{fazitError}</p>}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Offene Fragen</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-muted">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span>{openDiscussionPoints.length} offene Fragen</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowOpenQuestions((prev) => !prev)}
+                  >
+                    {showOpenQuestions ? "Ausblenden" : "Anzeigen"}
+                  </Button>
+                </div>
+                {showOpenQuestions && (
+                  <div className="space-y-2">
+                    {openDiscussionPoints.length > 0 ? (
+                      openDiscussionPoints.map((point) => (
+                        <div
+                          key={point.id}
+                          className="rounded-lg border border-border bg-bg px-3 py-2"
+                        >
+                          <p className="text-ink">{point.discussionPoint}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p>Keine offenen Fragen vorhanden.</p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       ) : (

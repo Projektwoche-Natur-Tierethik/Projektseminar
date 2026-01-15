@@ -28,8 +28,8 @@ export const discussionSteps: DiscussionStep[] = [
   },
   {
     step: 5,
-    title: "Feedback",
+    title: "Fazit",
     prompt:
-      "Bist du zufrieden mit dem Ergebnis? Was kann besser gemacht werden?"
+      "Formuliere dein Fazit zur Diskussion."
   }
 ];
