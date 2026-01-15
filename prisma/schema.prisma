@@ -18,6 +18,7 @@ model User {
   discussionPointConclusionLikes DiscussionPointConclusionLike[] @relation("DiscussionPointConclusionLiker")
   discussionPointConclusionAuthorLikes DiscussionPointConclusionLike[] @relation("DiscussionPointConclusionAuthor")
   participantConclusionLikes ParticipantConclusionLike[]
+  discussionPointLikes DiscussionPointLike[]
   comments       Comment[]
   commentLikes   CommentLike[]
   userValues     UserValue[]
@@ -73,6 +74,7 @@ model DiscussionPoint {
   discussion       Discussion                 @relation("DiscussionToPoints", fields: [discussionId], references: [id], onDelete: Cascade)
   currentForDiscussion Discussion?            @relation("CurrentDiscussionPoint")
   conclusions      DiscussionPointConclusion[]
+  likes            DiscussionPointLike[]
 
   @@map("discussionpoints")
 }
@@ -113,6 +115,17 @@ model ParticipantConclusionLike {
 
   @@id([likerUserId, participantId])
   @@map("likes_discussion_conclusion")
+}
+
+model DiscussionPointLike {
+  likerUserId       String   @map("user_likes_id")
+  discussionPointId String   @map("discussionpoint_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  liker             User     @relation(fields: [likerUserId], references: [id], onDelete: Cascade)
+  discussionPoint   DiscussionPoint @relation(fields: [discussionPointId], references: [id], onDelete: Cascade)
+
+  @@id([likerUserId, discussionPointId])
+  @@map("likes_discussionpoint")
 }
 
 model Comment {
