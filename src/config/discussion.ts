@@ -5,7 +5,7 @@ export const discussionSteps: DiscussionStep[] = [
     step: 1,
     title: "Werte bestimmen",
     prompt:
-      "Waehle die Werte aus, die fuer dich in dieser Diskussion zentral sind.",
+      "Wähle die Werte aus, die für dich in dieser Diskussion zentral sind.",
     helper: "Material: \"Welche Werte habe ich?\""
   },
   {
@@ -18,13 +18,13 @@ export const discussionSteps: DiscussionStep[] = [
     step: 3,
     title: "Inklusionsproblem",
     prompt:
-      "Wer oder was muss geschuetzt werden? Begruende den Rahmen anhand der Normen."
+      "Wer oder was muss geschuetzt werden? Begründe den Rahmen anhand der Normen."
   },
   {
     step: 4,
     title: "Diskussion",
     prompt:
-      "Was ist Dir wichtig? Formuliere Fragen, die du gerne diskutieren moechtest."
+      "Was ist Dir wichtig? Formuliere Fragen, die du gerne diskutieren möchtest."
   },
   {
     step: 5,

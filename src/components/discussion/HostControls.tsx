@@ -101,7 +101,7 @@ export default function HostControls({
       });
 
       if (!response.ok) {
-        setError("Aktion konnte nicht ausgefuehrt werden.");
+        setError("Aktion konnte nicht ausgeführt werden.");
         setLoading(false);
         return;
       }
@@ -110,7 +110,7 @@ export default function HostControls({
       setCurrentStep(data.currentStep ?? currentStep);
       setLoading(false);
     } catch {
-      setError("Aktion konnte nicht ausgefuehrt werden.");
+      setError("Aktion konnte nicht ausgeführt werden.");
       setLoading(false);
     }
   }
@@ -141,7 +141,7 @@ export default function HostControls({
         )}
         {currentStep > 0 && currentStep < 5 && (
           <Button onClick={() => handleAction("next")} disabled={loading}>
-            Naechsten Schritt freigeben
+            Nächsten Schritt freigeben
           </Button>
         )}
         {currentStep === 5 && (

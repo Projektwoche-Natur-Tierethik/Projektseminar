@@ -104,7 +104,7 @@ export default function CreateDiscussionPage() {
                 checked={normsEnabled}
                 onChange={(event) => setNormsEnabled(event.target.checked)}
               />
-              Schritt 2 (Normen) aktiv
+              Normen aktiv
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -113,12 +113,12 @@ export default function CreateDiscussionPage() {
                 checked={inclusionEnabled}
                 onChange={(event) => setInclusionEnabled(event.target.checked)}
               />
-              Schritt 3 (Inklusionsproblem) aktiv
+              Inklusionsproblem aktiv
             </label>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2 text-sm text-ink">
-              <span>Anzahl auswaehlbarer Werte (Schritt 1)</span>
+              <span>Anzahl auswählbarer Werte</span>
               <Input
                 type="number"
                 min={1}
@@ -131,7 +131,7 @@ export default function CreateDiscussionPage() {
               </span>
             </label>
             <label className="space-y-2 text-sm text-ink">
-              <span>Diskussionsfragen pro Person (Schritt 4)</span>
+              <span>Diskussionsfragen pro Person</span>
               <Input
                 type="number"
                 min={1}

@@ -32,11 +32,11 @@ export default function JoinQrCode({ code }: JoinQrCodeProps) {
         type="button"
         onClick={() => setIsOpen(true)}
         className="rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-        aria-label="QR-Code vergroessern"
+        aria-label="QR-Code vergrößern"
       >
         <img
           src={qrSrc}
-          alt="QR-Code fuer den Beitritt"
+          alt="QR-Code für den Beitritt"
           width={180}
           height={180}
           className="rounded-xl"
@@ -44,8 +44,8 @@ export default function JoinQrCode({ code }: JoinQrCodeProps) {
         />
       </button>
       <div className="space-y-1">
-        <p className="text-sm font-medium text-ink">QR-Code fuer den Beitritt</p>
-        <p className="text-xs text-muted">Antippen zum Vergroessern.</p>
+        <p className="text-sm font-medium text-ink">QR-Code für den Beitritt</p>
+        <p className="text-xs text-muted">Antippen zum Vergrößern.</p>
       </div>
       {isOpen && (
         <div
@@ -60,7 +60,7 @@ export default function JoinQrCode({ code }: JoinQrCodeProps) {
           >
             <img
               src={qrLargeSrc}
-              alt="QR-Code fuer den Beitritt"
+              alt="QR-Code für den Beitritt"
               width={340}
               height={340}
               className="rounded-xl border border-border"

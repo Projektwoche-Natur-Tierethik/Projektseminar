@@ -5,7 +5,7 @@ import { discussionSteps } from "@/src/config/discussion";
 
 export const metadata = {
   title: "Diskussionsassistent",
-  description: "Strukturierter Ablauf fuer ethische Diskussionen."
+  description: "Strukturierter Ablauf für ethische Diskussionen."
 };
 
 export default function AssistantPage() {
@@ -15,7 +15,7 @@ export default function AssistantPage() {
         <div className="space-y-3">
           <h1 className="text-3xl font-semibold">Diskussionsassistent</h1>
           <p className="text-muted">
-            Ein Schritt-fuer-Schritt-Guide, um Werte, Normen und konkrete
+            Ein Schritt-für-Schritt-Guide, um Werte, Normen und konkrete
             Handlungsoptionen gemeinsam herauszuarbeiten.
           </p>
           <div className="flex gap-3">
@@ -38,7 +38,7 @@ export default function AssistantPage() {
             <CardTitle>Tutorial</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted">
-            Platzhalter fuer einen Beispielablauf aus dem Seminar (Ergebnis,
+            Platzhalter für einen Beispielablauf aus dem Seminar (Ergebnis,
             Regeln, Zeitvorgaben).
           </CardContent>
         </Card>

@@ -10,17 +10,17 @@ const posts = [
   {
     title: "Exkursion: Nachhaltige Tierhaltung vor Ort",
     tag: "Event",
-    excerpt: "Platzhalter fuer Ankuendigung und Ergebnisse."
+    excerpt: "Platzhalter für Ankuendigung und Ergebnisse."
   },
   {
-    title: "Positivbeispiele fuer Mensch-Tier-Beziehungen",
+    title: "Positivbeispiele für Mensch-Tier-Beziehungen",
     tag: "Best Practice",
     excerpt: "Inspirierende Projekte und Initiativen aus Forschung und Praxis."
   },
   {
     title: "Leseliste: Umweltethik kompakt",
     tag: "Ressourcen",
-    excerpt: "Kuratiertes Material fuer die Vorbereitung der Diskussionen."
+    excerpt: "Kuratiertes Material für die Vorbereitung der Diskussionen."
   }
 ];
 

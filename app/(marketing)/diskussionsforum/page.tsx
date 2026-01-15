@@ -3,7 +3,7 @@ import { Badge } from "@/src/components/ui/Badge";
 
 export const metadata = {
   title: "Diskussionsforum",
-  description: "Austausch fuer Seminarteilnehmer mit moderierten Themen."
+  description: "Austausch für Seminarteilnehmer mit moderierten Themen."
 };
 
 const posts = [
@@ -13,9 +13,9 @@ const posts = [
     excerpt: "Welche Mindestanforderungen braucht ein ethisch vertretbarer Zoo?"
   },
   {
-    title: "Wildtiermanagement in Staedten",
+    title: "Wildtiermanagement in Städten",
     tag: "Diskussion",
-    excerpt: "Koexistenz von Mensch und Tier in urbanen Raeumen."
+    excerpt: "Koexistenz von Mensch und Tier in urbanen Räumen."
   },
   {
     title: "Ethik in der Landwirtschaft",

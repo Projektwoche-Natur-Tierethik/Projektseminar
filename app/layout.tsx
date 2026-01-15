@@ -9,7 +9,7 @@ const serif = Fraunces({ subsets: ["latin", "latin-ext"], variable: "--font-frau
 export const metadata: Metadata = {
   title: "Ethik-Dialog | Umwelt- und Tierethik",
   description:
-    "Diskursplattform fuer Umwelt- und Tierethik im universitaeren Kontext."
+    "Diskursplattform für Umwelt- und Tierethik im universitaeren Kontext."
 };
 
 export default function RootLayout({

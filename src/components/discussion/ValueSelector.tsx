@@ -45,7 +45,7 @@ export default function ValueSelector({
             )}
           >
             <span>{value}</span>
-            {isSelected && <span className="text-xs">gewaehlt</span>}
+            {isSelected && <span className="text-xs">gewählt</span>}
           </button>
         );
       })}

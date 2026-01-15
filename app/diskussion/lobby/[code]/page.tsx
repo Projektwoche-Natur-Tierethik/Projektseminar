@@ -55,7 +55,7 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold">Lobby</h1>
         <p className="text-muted">
-          Teile den Code, den Einladungslink oder den QR-Code fuer den Beitritt.
+          Teile den Code, den Einladungslink oder den QR-Code für den Beitritt.
         </p>
       </header>
 

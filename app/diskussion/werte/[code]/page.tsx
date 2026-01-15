@@ -28,7 +28,7 @@ export default async function WertePage({ params, searchParams }: WertePageProps
   }
 
   let isHost = false;
-  let selectedValueIds: string[] = [];
+  let selectedValueIds: number[] = [];
   if (name) {
     const user = await prisma.user.findUnique({ where: { name } });
     if (user) {
@@ -41,9 +41,9 @@ export default async function WertePage({ params, searchParams }: WertePageProps
   }
 
   const selectedValueLabels = new Set(
-    discussion.userValues
-      .filter((item) => selectedValueIds.includes(item.valueId))
-      .map((item) => item.value?.value ?? "Unbekannt")
+    selectedValueIds
+      .map((valueId) => getValueLabel(valueId))
+      .filter((label): label is string => Boolean(label))
   );
   const counts = discussion.userValues.reduce((acc, item) => {
     const label = getValueLabel(item.valueId) ?? "Unbekannt";
@@ -96,6 +96,18 @@ export default async function WertePage({ params, searchParams }: WertePageProps
           )}
         </CardContent>
       </Card>
+      {name && (
+        <div className="flex">
+          <a
+            href={`/diskussion/schritt/${Math.min(Math.max(discussion.step, 2), 5)}?code=${discussion.code}&name=${encodeURIComponent(
+              name
+            )}`}
+            className="inline-flex items-center justify-center rounded-none border border-border px-4 py-2 text-sm font-medium text-ink hover:bg-surface"
+          >
+            Weiter zum nächsten Schritt
+          </a>
+        </div>
+      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { buttonStyles } from "@/src/components/ui/Button";
 import ThemeToggle from "@/src/components/ui/ThemeToggle";
 
 const navItems = [
-  { label: "Begriffsklaerung", href: "/begriffsklaerung" },
+  { label: "Begriffsklärung", href: "/begriffsklaerung" },
   { label: "Diskussionsassistent", href: "/diskussionsassistent" },
   { label: "Diskussionsforum", href: "/diskussionsforum" },
   { label: "Blog", href: "/blog" },

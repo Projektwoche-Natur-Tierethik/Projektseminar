@@ -29,6 +29,27 @@ export default function DiscussionStepPage() {
   const code = searchParams.get("code") ?? "";
   const name = searchParams.get("name") ?? "";
 
+  function hashString(input: string) {
+    let hash = 0;
+    for (let i = 0; i < input.length; i += 1) {
+      hash = (hash * 31 + input.charCodeAt(i)) >>> 0;
+    }
+    return hash;
+  }
+
+  function seededShuffle<T>(items: T[], seed: number) {
+    const result = [...items];
+    let current = result.length;
+    let state = seed || 1;
+    while (current) {
+      state = (state * 1664525 + 1013904223) >>> 0;
+      const index = state % current;
+      current -= 1;
+      [result[current], result[index]] = [result[index], result[current]];
+    }
+    return result;
+  }
+
   const [settings, setSettings] = useState(defaultDiscussionSettings);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [discussionId, setDiscussionId] = useState<string | null>(null);
@@ -187,6 +208,12 @@ export default function DiscussionStepPage() {
     () => enabledSteps.find((item) => item > step) ?? null,
     [enabledSteps, step]
   );
+  const shuffleSeed = useMemo(() => {
+    return hashString(userId ?? name ?? String(code));
+  }, [userId, name, code]);
+  const shuffledValuesList = useMemo(() => {
+    return seededShuffle(valuesList, shuffleSeed);
+  }, [shuffleSeed]);
 
   useEffect(() => {
     if (step !== 1 || !code) return;
@@ -533,18 +560,26 @@ export default function DiscussionStepPage() {
   }, [discussionId, step]);
 
   useEffect(() => {
-    if (!discussionId || step !== 5) return;
+    if (!discussionId || (step !== 4 && step !== 5)) return;
     let isMounted = true;
     const fetchConclusions = async () => {
       const completed = discussionPoints.filter((item) => item.markedAsComplete);
-      if (completed.length === 0) {
+      const currentPoint =
+        step === 4 && currentDiscussionPointId
+          ? discussionPoints.find((item) => item.id === currentDiscussionPointId)
+          : null;
+      const relevantPoints = currentPoint ? [currentPoint, ...completed] : completed;
+      const uniquePoints = relevantPoints.filter(
+        (item, index, array) => array.findIndex((entry) => entry.id === item.id) === index
+      );
+      if (uniquePoints.length === 0) {
         if (!isMounted) return;
         setConclusionsByPoint({});
         return;
       }
       try {
         const entries = await Promise.all(
-          completed.map(async (item) => {
+          uniquePoints.map(async (item) => {
             const response = await fetch(
               `/api/discussionpoint-conclusions?discussionPointId=${encodeURIComponent(
                 item.id
@@ -571,7 +606,29 @@ export default function DiscussionStepPage() {
       isMounted = false;
       window.clearInterval(interval);
     };
-  }, [discussionId, discussionPoints, step]);
+  }, [discussionId, discussionPoints, step, currentDiscussionPointId]);
+
+  useEffect(() => {
+    if ((step !== 4 && step !== 5) || !userId) return;
+    const updates: Record<string, string> = {};
+    Object.entries(conclusionsByPoint).forEach(([pointId, conclusions]) => {
+      const own = (conclusions as any[]).find((item) => item.userId === userId);
+      if (own) {
+        updates[pointId] = own.conclusion ?? "";
+      }
+    });
+    if (Object.keys(updates).length > 0) {
+      setConclusionDrafts((prev) => {
+        const next = { ...prev };
+        Object.entries(updates).forEach(([pointId, value]) => {
+          if (!(pointId in next)) {
+            next[pointId] = value;
+          }
+        });
+        return next;
+      });
+    }
+  }, [step, userId, conclusionsByPoint]);
 
   useEffect(() => {
     if (!discussionId || step !== 5) return;
@@ -844,6 +901,13 @@ export default function DiscussionStepPage() {
       });
   }, [code, name, step]);
 
+  useEffect(() => {
+    if (step !== 1 || isHost || currentStep === null) return;
+    if (currentStep > 1) {
+      router.push(`/diskussion/werte/${code}?name=${encodeURIComponent(name)}`);
+    }
+  }, [step, isHost, currentStep, code, name, router]);
+
   if (!stepData) {
     return (
       <div className="container mx-auto pt-12">
@@ -863,14 +927,14 @@ export default function DiscussionStepPage() {
             )}`}
             className={buttonStyles({ variant: "primary", size: "md" })}
           >
-            Zum naechsten aktiven Schritt
+            Zum nächsten aktiven Schritt
           </Link>
         ) : (
           <Link
             href={`/diskussion/lobby/${code}?name=${encodeURIComponent(name)}`}
             className={buttonStyles({ variant: "outline", size: "md" })}
           >
-            Zurueck zur Lobby
+            Zurück zur Lobby
           </Link>
         )}
       </div>
@@ -889,7 +953,7 @@ export default function DiscussionStepPage() {
     const data = await response.json();
     setTopValues(data.topValues ?? []);
     setLoading(false);
-    setStatusMessage("Antwort gespeichert. Warte auf die Freigabe des naechsten Schritts.");
+    setStatusMessage("Antwort gespeichert. Warte auf die Freigabe des nächsten Schritts.");
   }
 
   async function handleStepSubmit(value: string) {
@@ -900,7 +964,7 @@ export default function DiscussionStepPage() {
       headers: { "Content-Type": "application/json" }
     });
 
-    setStatusMessage("Antwort gespeichert. Warte auf die Freigabe des naechsten Schritts.");
+    setStatusMessage("Antwort gespeichert. Warte auf die Freigabe des nächsten Schritts.");
   }
 
   async function handleQuestionsSubmit(questions: string[]) {
@@ -937,7 +1001,7 @@ export default function DiscussionStepPage() {
           })
         )
       );
-      setStatusMessage("Fragen gespeichert. Warte auf die Freigabe des naechsten Schritts.");
+      setStatusMessage("Fragen gespeichert. Warte auf die Freigabe des nächsten Schritts.");
     } catch {
       setStatusMessage("Fragen konnten nicht gespeichert werden.");
     }
@@ -972,7 +1036,7 @@ export default function DiscussionStepPage() {
       const data = await response.json();
       setUserNorms((prev) => [...prev, data.norm]);
       setNormText("");
-      setStatusMessage("Norm gespeichert. Warte auf die Freigabe des naechsten Schritts.");
+      setStatusMessage("Norm gespeichert. Warte auf die Freigabe des nächsten Schritts.");
     } catch {
       setNormError("Norm konnte nicht gespeichert werden.");
     } finally {
@@ -1185,6 +1249,36 @@ export default function DiscussionStepPage() {
     }
   }
 
+  async function handleConclusionUpdate(conclusionId: string, pointId: string) {
+    const text = (conclusionDrafts[pointId] ?? "").trim();
+    if (!text) {
+      setFazitError("Bitte ein Fazit eingeben.");
+      return;
+    }
+    setFazitError("");
+    try {
+      const response = await fetch("/api/discussionpoint-conclusions", {
+        method: "PUT",
+        body: JSON.stringify({ conclusionId, conclusion: text }),
+        headers: { "Content-Type": "application/json" }
+      });
+      if (!response.ok) {
+        throw new Error("conclusion_update_failed");
+      }
+      const data = await response.json();
+      const updated = data.conclusion;
+      setConclusionsByPoint((prev) => ({
+        ...prev,
+        [pointId]: (prev[pointId] ?? []).map((item) =>
+          item.id === conclusionId ? updated : item
+        )
+      }));
+      setConclusionDrafts((prev) => ({ ...prev, [pointId]: updated.conclusion ?? text }));
+    } catch {
+      setFazitError("Fazit konnte nicht aktualisiert werden.");
+    }
+  }
+
   async function handleCommentSubmit(conclusionId: string) {
     if (!userId) return;
     const text = (commentDrafts[conclusionId] ?? "").trim();
@@ -1355,7 +1449,7 @@ export default function DiscussionStepPage() {
     return (
       <div className="container mx-auto pt-12">
         <p className="text-muted">
-          Bitte zuerst ueber die Lobby oder Join-Seite beitreten.
+          Bitte zuerst über die Lobby oder Join-Seite beitreten.
         </p>
       </div>
     );
@@ -1388,7 +1482,7 @@ export default function DiscussionStepPage() {
             href={`/diskussion/lobby/${code}?name=${encodeURIComponent(name)}`}
             className={buttonStyles({ variant: "outline", size: "md" })}
           >
-            Zurueck zur Lobby
+            Zurück zur Lobby
           </Link>
         </div>
       );
@@ -1416,7 +1510,7 @@ export default function DiscussionStepPage() {
       return (
         <div className="container mx-auto space-y-4 pt-12">
           <p className="text-muted">
-            Die Diskussion ist abgeschlossen. Das Fazit ist verfuegbar.
+            Die Diskussion ist abgeschlossen. Das Fazit ist verfügbar.
           </p>
           <Link
             href={`/diskussion/schritt/5?code=${code}&name=${encodeURIComponent(name)}`}
@@ -1431,7 +1525,7 @@ export default function DiscussionStepPage() {
 
   const stepPrompt =
     step === 4
-      ? `Stelle bis zu ${questionsCount} Fragen, die du gerne diskutieren moechtest.`
+      ? `Stelle bis zu ${questionsCount} Fragen, die du gerne diskutieren möchtest.`
       : stepData.prompt;
 
   const activeDiscussionPoint = discussionPoints.find(
@@ -1441,6 +1535,12 @@ export default function DiscussionStepPage() {
   const completedDiscussionPoints = discussionPoints.filter((item) => item.markedAsComplete);
   const skipVotes = adminParticipants.filter((item) => item.moveOnButton).length;
   const remainingQuestions = Math.max(questionsCount - userQuestions.length, 0);
+  const discussionPointsForConclusions = [
+    ...(currentDiscussionPointId && activeDiscussionPoint ? [activeDiscussionPoint] : []),
+    ...completedDiscussionPoints
+  ].filter(
+    (item, index, array) => array.findIndex((entry) => entry.id === item.id) === index
+  );
   const sortedOpenDiscussionPoints = [...openDiscussionPoints].sort((left, right) => {
     const diff =
       (discussionPointLikeCounts[right.id] ?? 0) -
@@ -1479,6 +1579,18 @@ export default function DiscussionStepPage() {
         </h1>
         <p className="text-muted">{stepPrompt}</p>
       </header>
+      {step > 1 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Wertekatalog</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted">
+            {selectedCatalogValues.length > 0
+              ? selectedCatalogValues.join(", ")
+              : "Noch kein Wertekatalog festgelegt."}
+          </CardContent>
+        </Card>
+      )}
       {!isHost &&
         currentEnabledStep !== null &&
         currentEnabledStep > step &&
@@ -1486,7 +1598,7 @@ export default function DiscussionStepPage() {
         <Card>
           <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
             <p className="text-sm text-muted">
-              Der naechste Schritt ist freigeschaltet.
+              Der nächste Schritt ist freigeschaltet.
             </p>
           <Link
             href={`/diskussion/schritt/${currentEnabledStep}?code=${code}&name=${encodeURIComponent(
@@ -1494,7 +1606,7 @@ export default function DiscussionStepPage() {
             )}`}
             className={buttonStyles({ variant: "primary", size: "sm" })}
           >
-            Zum naechsten Schritt
+            Zum nächsten Schritt
           </Link>
           </CardContent>
         </Card>
@@ -1509,7 +1621,7 @@ export default function DiscussionStepPage() {
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-muted">
                 <p>
-                  Waehle frei aus allen genannten Werten. Die Reihenfolge im Ranking
+                  Wähle frei aus allen genannten Werten. Die Reihenfolge im Ranking
                   spielt keine Rolle.
                 </p>
                 {participantCount !== null && readyCount !== null && (
@@ -1561,14 +1673,14 @@ export default function DiscussionStepPage() {
         ) : (
             <Card>
               <CardHeader>
-                <CardTitle>Werte auswaehlen</CardTitle>
+                <CardTitle>Werte auswählen</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted">
-                  Waehle {valuesCount} Werte aus, die dir am wichtigsten sind.
+                  Wähle {valuesCount} Werte aus, die dir am wichtigsten sind.
                 </p>
                 <ValueSelector
-                  values={valuesList}
+                  values={shuffledValuesList}
                   selected={selectedValues}
                   max={valuesCount}
                   onChange={isReviewMode ? () => {} : setSelectedValues}
@@ -1597,7 +1709,7 @@ export default function DiscussionStepPage() {
                 )}
                 {readyUpdatedAt && (
                   <p className="text-xs text-muted">
-                    Status zuletzt geaendert:{" "}
+                    Status zuletzt geändert:{" "}
                     {new Date(readyUpdatedAt).toLocaleString("de-DE")}
                   </p>
                 )}
@@ -1614,10 +1726,10 @@ export default function DiscussionStepPage() {
                 {isHost
                   ? selectedCatalogValues.length > 0
                     ? selectedCatalogValues.join(", ")
-                    : "Noch kein Wertekatalog ausgewaehlt."
+                    : "Noch kein Wertekatalog ausgewählt."
                   : selectedValues.length > 0
                     ? selectedValues.join(", ")
-                    : "Noch keine Werte ausgewaehlt."}
+                    : "Noch keine Werte ausgewählt."}
               </CardContent>
             </Card>
             <Card>
@@ -1626,32 +1738,38 @@ export default function DiscussionStepPage() {
               </CardHeader>
               <CardContent className="space-y-2 text-sm text-muted">
                 <p className="text-xs text-muted">
-                  Dient nur als Orientierung fuer die spaetere Auswahl.
+                  Dient nur als Orientierung für die spätere Auswahl.
                 </p>
-                {topValues.length > 0 ? (
-                  topValues.map((item) => {
-                    const isSelected = selectedValueLabels.has(item.value);
-                    return (
-                      <div
-                        key={item.value}
-                        className={`flex items-center justify-between rounded-none px-2 py-1 ${
-                          isSelected ? "bg-primary/10 text-ink" : ""
-                        }`}
-                      >
-                        <span>{item.value}</span>
-                        <span>{item.count}</span>
-                      </div>
-                    );
-                  })
+                {isHost ? (
+                  topValues.length > 0 ? (
+                    topValues.map((item) => {
+                      const isSelected = selectedValueLabels.has(item.value);
+                      return (
+                        <div
+                          key={item.value}
+                          className={`flex items-center justify-between rounded-none px-2 py-1 ${
+                            isSelected ? "bg-primary/10 text-ink" : ""
+                          }`}
+                        >
+                          <span>{item.value}</span>
+                          <span>{item.count}</span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p>Noch keine Daten.</p>
+                  )
                 ) : (
-                  <p>Noch keine Daten.</p>
+                  <p>Wird nach Freigabe der Leitung angezeigt.</p>
                 )}
-                <Link
-                  href={`/diskussion/werte/${code}?name=${encodeURIComponent(name)}`}
-                  className={buttonStyles({ variant: "outline", size: "sm" })}
-                >
-                  Zum Ranking-Diagramm
-                </Link>
+                {isHost && (
+                  <Link
+                    href={`/diskussion/werte/${code}?name=${encodeURIComponent(name)}`}
+                    className={buttonStyles({ variant: "outline", size: "sm" })}
+                  >
+                    Zum Ranking-Diagramm
+                  </Link>
+                )}
               </CardContent>
             </Card>
             {isHost && currentStep !== null && (
@@ -1673,7 +1791,7 @@ export default function DiscussionStepPage() {
                       )}`}
                       className={buttonStyles({ variant: "primary", size: "sm" })}
                     >
-                      Zum naechsten Schritt
+                      Zum nächsten Schritt
                     </Link>
                   )}
                   {adminParticipants.length > 0 && (
@@ -1715,7 +1833,7 @@ export default function DiscussionStepPage() {
                     value={selectedNormValueId}
                     onChange={(event) => setSelectedNormValueId(event.target.value)}
                   >
-                    <option value="">Bitte auswaehlen</option>
+                    <option value="">Bitte auswählen</option>
                     {catalogValueLabels.map((label) => {
                       const valueId = valueIdByLabel[label];
                       if (!valueId) return null;
@@ -1752,7 +1870,7 @@ export default function DiscussionStepPage() {
                 {statusMessage && <p className="text-sm text-muted">{statusMessage}</p>}
                 {readyUpdatedAt && (
                   <p className="text-xs text-muted">
-                    Status zuletzt geaendert:{" "}
+                    Status zuletzt geändert:{" "}
                     {new Date(readyUpdatedAt).toLocaleString("de-DE")}
                   </p>
                 )}
@@ -1906,7 +2024,7 @@ export default function DiscussionStepPage() {
                   )}
                   {readyUpdatedAt && (
                     <p className="mt-2 text-xs text-muted">
-                      Status zuletzt geaendert:{" "}
+                      Status zuletzt geändert:{" "}
                       {new Date(readyUpdatedAt).toLocaleString("de-DE")}
                     </p>
                   )}
@@ -1928,12 +2046,88 @@ export default function DiscussionStepPage() {
                       variant={hasSkipped ? "outline" : "primary"}
                       disabled={discussionActionLoading}
                     >
-                      {hasSkipped ? "Weiter diskutieren" : "Frage ueberspringen"}
+                      {hasSkipped ? "Weiter diskutieren" : "Frage überspringen"}
                     </Button>
                   </div>
                   {discussionActionError && (
                     <p className="text-xs text-accent2">{discussionActionError}</p>
                   )}
+                </CardContent>
+              </Card>
+            )}
+            {!isHost && discussionPointsForConclusions.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Zwischenfazit</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm text-muted">
+                  {discussionPointsForConclusions.map((point) => {
+                    const pointConclusions = conclusionsByPoint[point.id] ?? [];
+                    const ownConclusion = pointConclusions.find(
+                      (item) => item.userId === userId
+                    );
+                    return (
+                      <div
+                        key={point.id}
+                        className="space-y-3 rounded-xl border border-border bg-bg p-4"
+                      >
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted">Diskussionspunkt</p>
+                          <p className="text-ink">{point.discussionPoint}</p>
+                        </div>
+                        {ownConclusion ? (
+                          step === 5 || step === 4 ? (
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium text-ink">Dein Fazit</label>
+                              <textarea
+                                rows={3}
+                                className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-ring"
+                                placeholder="Formuliere dein Fazit..."
+                                value={conclusionDrafts[point.id] ?? ownConclusion.conclusion ?? ""}
+                                onChange={(event) =>
+                                  setConclusionDrafts((prev) => ({
+                                    ...prev,
+                                    [point.id]: event.target.value
+                                  }))
+                                }
+                              />
+                            <Button
+                              onClick={() =>
+                                handleConclusionUpdate(ownConclusion.id, point.id)
+                              }
+                            >
+                              Fazit aktualisieren
+                            </Button>
+                            </div>
+                          ) : (
+                            <div className="rounded-lg border border-border bg-surface px-3 py-2">
+                              <p className="text-xs text-muted">Dein Fazit</p>
+                              <p className="text-ink">{ownConclusion.conclusion}</p>
+                            </div>
+                          )
+                        ) : (
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-ink">Dein Fazit</label>
+                            <textarea
+                              rows={3}
+                              className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-ring"
+                              placeholder="Formuliere dein Fazit..."
+                              value={conclusionDrafts[point.id] ?? ""}
+                              onChange={(event) =>
+                                setConclusionDrafts((prev) => ({
+                                  ...prev,
+                                  [point.id]: event.target.value
+                                }))
+                              }
+                            />
+                            <Button onClick={() => handleConclusionSubmit(point.id)}>
+                              Fazit speichern
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </CardContent>
               </Card>
             )}
@@ -1961,8 +2155,8 @@ export default function DiscussionStepPage() {
                         disabled={!userId}
                       >
                         {discussionPointLikedByUser[point.id]
-                          ? "Gefaellt mir nicht mehr"
-                          : "Gefaellt mir"}
+                          ? "Gefällt mir nicht mehr"
+                          : "Gefällt mir"}
                       </Button>
                     </div>
                   ))
@@ -1995,8 +2189,8 @@ export default function DiscussionStepPage() {
                         disabled={!userId}
                       >
                         {discussionPointLikedByUser[point.id]
-                          ? "Gefaellt mir nicht mehr"
-                          : "Gefaellt mir"}
+                          ? "Gefällt mir nicht mehr"
+                          : "Gefällt mir"}
                       </Button>
                     </div>
                   ))
@@ -2067,7 +2261,7 @@ export default function DiscussionStepPage() {
                         </p>
                       </div>
                       <p className="text-xs text-muted">
-                        Ueberspringen-Stimmen: {skipVotes} / {adminParticipants.length}
+                        Überspringen-Stimmen: {skipVotes} / {adminParticipants.length}
                       </p>
                       <div className="flex flex-wrap gap-2">
                         <Button
@@ -2088,7 +2282,7 @@ export default function DiscussionStepPage() {
                   ) : (
                     <div className="space-y-3">
                       <p className="text-sm text-muted">
-                        Waehle eine Frage aus dem Pool aus, um die Diskussion zu starten.
+                        Wähle eine Frage aus dem Pool aus, um die Diskussion zu starten.
                       </p>
                       <div className="space-y-2">
                         {openDiscussionPoints.length > 0 ? (
@@ -2108,7 +2302,7 @@ export default function DiscussionStepPage() {
                             </div>
                           ))
                         ) : (
-                          <p>Noch keine offenen Fragen verfuegbar.</p>
+                          <p>Noch keine offenen Fragen verfügbar.</p>
                         )}
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -2227,9 +2421,27 @@ export default function DiscussionStepPage() {
                         </div>
 
                         {ownConclusion ? (
-                          <div className="rounded-lg border border-border bg-surface px-3 py-2">
-                            <p className="text-xs text-muted">Dein Fazit</p>
-                            <p className="text-ink">{ownConclusion.conclusion}</p>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-ink">Dein Fazit</label>
+                            <textarea
+                              rows={3}
+                              className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-ring"
+                              placeholder="Formuliere dein Fazit..."
+                              value={conclusionDrafts[point.id] ?? ownConclusion.conclusion ?? ""}
+                              onChange={(event) =>
+                                setConclusionDrafts((prev) => ({
+                                  ...prev,
+                                  [point.id]: event.target.value
+                                }))
+                              }
+                            />
+                            <Button
+                              onClick={() =>
+                                handleConclusionUpdate(ownConclusion.id, point.id)
+                              }
+                            >
+                              Fazit aktualisieren
+                            </Button>
                           </div>
                         ) : (
                           <div className="space-y-2">
@@ -2277,8 +2489,8 @@ export default function DiscussionStepPage() {
                                       onClick={() => handleConclusionLikeToggle(conclusion)}
                                     >
                                       {conclusionLikedByUser[conclusion.id]
-                                        ? "Gefaellt mir nicht mehr"
-                                        : "Gefaellt mir"}
+                                        ? "Gefällt mir nicht mehr"
+                                        : "Gefällt mir"}
                                     </Button>
                                     <span>
                                       {conclusionLikeCounts[conclusion.id] ?? 0} Zustimmungen
@@ -2310,8 +2522,8 @@ export default function DiscussionStepPage() {
                                               onClick={() => handleCommentLikeToggle(comment)}
                                             >
                                               {commentLikedByUser[comment.id]
-                                                ? "Gefaellt mir nicht mehr"
-                                                : "Gefaellt mir"}
+                                                ? "Gefällt mir nicht mehr"
+                                                : "Gefällt mir"}
                                             </Button>
                                             <span>
                                               {commentLikeCounts[comment.id] ?? 0} Zustimmungen
@@ -2428,7 +2640,7 @@ export default function DiscussionStepPage() {
             )}
             {readyUpdatedAt && (
               <p className="mt-2 text-xs text-muted">
-                Status zuletzt geaendert:{" "}
+                Status zuletzt geändert:{" "}
                 {new Date(readyUpdatedAt).toLocaleString("de-DE")}
               </p>
             )}

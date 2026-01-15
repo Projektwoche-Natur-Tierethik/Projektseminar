@@ -63,7 +63,7 @@ const wnpSources = [
 const inklusionSources = [
   {
     id: "1",
-    label: "Bundeszentrale fuer politische Bildung: Naturschutztheorie.",
+    label: "Bundeszentrale für politische Bildung: Naturschutztheorie.",
     href: "https://www.bpb.de/themen/umwelt/bioethik/272093/naturschutztheorie/"
   }
 ];
@@ -71,7 +71,7 @@ const inklusionSources = [
 const umweltTierethikSources = [
   {
     id: "1",
-    label: "Bundeszentrale fuer politische Bildung: Naturschutztheorie.",
+    label: "Bundeszentrale für politische Bildung: Naturschutztheorie.",
     href: "https://www.bpb.de/themen/umwelt/bioethik/272093/naturschutztheorie/"
   }
 ];
@@ -107,7 +107,7 @@ const inklusionAntworten = [
   }
 ];
 
-export default function BegriffsklaerungContent() {
+export default function BegriffsklärungContent() {
   const defaultId = "werte-normen-pflichten";
   const [activeId, setActiveId] = useState(defaultId);
   const [aktiveAntwort, setAktiveAntwort] = useState(inklusionAntworten[0]?.id);
@@ -322,7 +322,7 @@ export default function BegriffsklaerungContent() {
                           und Belastungen sowie Beteiligung an Entscheidungen.
                         </li>
                         <li>
-                          Generationengerechtigkeit: gleiche Rechte ueber
+                          Generationengerechtigkeit: gleiche Rechte über
                           Generationen hinweg, z. B. Klimaschutz und
                           Nachhaltigkeit.
                         </li>
@@ -470,7 +470,7 @@ export default function BegriffsklaerungContent() {
                 href={`#${prevSection.id}`}
                 className={buttonStyles({ variant: "outline", size: "sm" })}
               >
-                Zurueck: {prevSection.label}
+                Zurück: {prevSection.label}
               </a>
             ) : (
               <span />
