@@ -40,7 +40,22 @@ export default function HostControls({
     return Number(data.currentStep ?? currentStep + 1);
   }
 
-  async function handleAction(action: "start" | "next" | "finish") {
+  async function retreatStep() {
+    const response = await fetch("/api/diskussion/control", {
+      method: "POST",
+      body: JSON.stringify({ code, name, action: "prev" }),
+      headers: { "Content-Type": "application/json" }
+    });
+
+    if (!response.ok) {
+      throw new Error("step_failed");
+    }
+
+    const data = await response.json();
+    return Number(data.currentStep ?? Math.max(currentStep - 1, 0));
+  }
+
+  async function handleAction(action: "start" | "next" | "prev" | "finish") {
     setLoading(true);
     setError("");
     try {
@@ -58,6 +73,21 @@ export default function HostControls({
         let step = currentStep;
         while (step < nextStep) {
           step = await advanceStep();
+        }
+        setCurrentStep(step);
+        setLoading(false);
+        return;
+      }
+
+      if (action === "prev") {
+        const enabledSteps = getEnabledSteps(settings);
+        const currentIndex = enabledSteps.indexOf(currentStep);
+        const previousStep =
+          currentIndex > 0 ? enabledSteps[currentIndex - 1] : 0;
+
+        let step = currentStep;
+        while (step > previousStep) {
+          step = await retreatStep();
         }
         setCurrentStep(step);
         setLoading(false);
@@ -104,15 +134,18 @@ export default function HostControls({
             Diskussion starten
           </Button>
         )}
+        {currentStep > 0 && (
+          <Button onClick={() => handleAction("prev")} disabled={loading} variant="outline">
+            Vorherigen Schritt freigeben
+          </Button>
+        )}
         {currentStep > 0 && currentStep < 5 && (
           <Button onClick={() => handleAction("next")} disabled={loading}>
             Naechsten Schritt freigeben
           </Button>
         )}
         {currentStep === 5 && (
-          <Button onClick={() => handleAction("finish")} disabled={loading}>
-            Auswertung freigeben
-          </Button>
+          <p className="text-sm text-muted">Fazit ist freigegeben.</p>
         )}
       </div>
       {isFinished && (

@@ -125,10 +125,12 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
         )}
         {currentStep > 5 && (
           <Link
-            href={`/diskussion/auswertung/${discussion.code}`}
+            href={`/diskussion/schritt/5?code=${discussion.code}&name=${encodeURIComponent(
+              name
+            )}`}
             className={buttonStyles({ variant: "primary", size: "md" })}
           >
-            Zur Auswertung
+            Zum Fazit
           </Link>
         )}
       </div>

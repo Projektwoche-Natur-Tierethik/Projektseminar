@@ -25,7 +25,7 @@ export default function LobbyAutoRedirect({ code, name }: LobbyAutoRedirectProps
               `/diskussion/schritt/${currentStep}?code=${code}&name=${encodeURIComponent(name)}`
             );
           } else if (currentStep > 5) {
-            router.push(`/diskussion/auswertung/${code}`);
+            router.push(`/diskussion/schritt/5?code=${code}&name=${encodeURIComponent(name)}`);
           }
         })
         .catch(() => {});

@@ -89,6 +89,10 @@ export default function DiscussionStepPage() {
   const [userDirectory, setUserDirectory] = useState<Record<string, any>>({});
   const [conclusionDrafts, setConclusionDrafts] = useState<Record<string, string>>({});
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [conclusionLikeCounts, setConclusionLikeCounts] = useState<Record<string, number>>({});
+  const [commentLikeCounts, setCommentLikeCounts] = useState<Record<string, number>>({});
+  const [conclusionLikedByUser, setConclusionLikedByUser] = useState<Record<string, boolean>>({});
+  const [commentLikedByUser, setCommentLikedByUser] = useState<Record<string, boolean>>({});
   const [fazitError, setFazitError] = useState("");
   const [showOpenQuestions, setShowOpenQuestions] = useState(false);
   const currentPointRef = useRef<string | null>(null);
@@ -615,6 +619,117 @@ export default function DiscussionStepPage() {
   }, [discussionId, conclusionsByPoint, step]);
 
   useEffect(() => {
+    if (!discussionId || step !== 5) return;
+    let isMounted = true;
+    const fetchConclusionLikes = async () => {
+      const allConclusions = Object.values(conclusionsByPoint).flat();
+      if (allConclusions.length === 0) {
+        if (!isMounted) return;
+        setConclusionLikeCounts({});
+        setConclusionLikedByUser({});
+        return;
+      }
+      try {
+        const entries = await Promise.all(
+          allConclusions.map(async (conclusion) => {
+            const query = new URLSearchParams({
+              discussionPointId: conclusion.discussionPointId,
+              conclusionUserId: conclusion.userId,
+              ...(userId ? { likerUserId: userId } : {})
+            });
+            const response = await fetch(
+              `/api/discussionpoint-conclusion-likes?${query.toString()}`
+            );
+            const data = await response.json();
+            return [
+              conclusion.id,
+              {
+                count: Number(data.count ?? 0),
+                liked: Boolean(data.liked)
+              }
+            ] as const;
+          })
+        );
+        if (!isMounted) return;
+        const nextCounts = entries.reduce((acc: Record<string, number>, [id, payload]) => {
+          acc[id] = payload.count;
+          return acc;
+        }, {});
+        const nextLiked = entries.reduce((acc: Record<string, boolean>, [id, payload]) => {
+          acc[id] = payload.liked;
+          return acc;
+        }, {});
+        setConclusionLikeCounts(nextCounts);
+        setConclusionLikedByUser(nextLiked);
+      } catch {
+        if (!isMounted) return;
+        setConclusionLikeCounts({});
+        setConclusionLikedByUser({});
+      }
+    };
+    fetchConclusionLikes();
+    const interval = window.setInterval(fetchConclusionLikes, 5000);
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+    };
+  }, [discussionId, conclusionsByPoint, step, userId]);
+
+  useEffect(() => {
+    if (!discussionId || step !== 5) return;
+    let isMounted = true;
+    const fetchCommentLikes = async () => {
+      const allComments = Object.values(commentsByConclusion).flat();
+      if (allComments.length === 0) {
+        if (!isMounted) return;
+        setCommentLikeCounts({});
+        setCommentLikedByUser({});
+        return;
+      }
+      try {
+        const entries = await Promise.all(
+          allComments.map(async (comment) => {
+            const query = new URLSearchParams({
+              commentId: comment.id,
+              ...(userId ? { likerUserId: userId } : {})
+            });
+            const response = await fetch(`/api/comment-likes?${query.toString()}`);
+            const data = await response.json();
+            return [
+              comment.id,
+              {
+                count: Number(data.count ?? 0),
+                liked: Boolean(data.liked)
+              }
+            ] as const;
+          })
+        );
+        if (!isMounted) return;
+        const nextCounts = entries.reduce((acc: Record<string, number>, [id, payload]) => {
+          acc[id] = payload.count;
+          return acc;
+        }, {});
+        const nextLiked = entries.reduce((acc: Record<string, boolean>, [id, payload]) => {
+          acc[id] = payload.liked;
+          return acc;
+        }, {});
+        setCommentLikeCounts(nextCounts);
+        setCommentLikedByUser(nextLiked);
+      } catch {
+        if (!isMounted) return;
+        setCommentLikeCounts({});
+        setCommentLikedByUser({});
+      }
+    };
+    fetchCommentLikes();
+    const interval = window.setInterval(fetchCommentLikes, 5000);
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+    };
+  }, [discussionId, commentsByConclusion, step, userId]);
+
+  useEffect(() => {
     if (!discussionId || !userId || step !== 4) return;
     let isMounted = true;
     fetch(
@@ -959,15 +1074,15 @@ export default function DiscussionStepPage() {
     try {
       const response = await fetch("/api/diskussion/control", {
         method: "POST",
-        body: JSON.stringify({ code, name, action: "finish" }),
+        body: JSON.stringify({ code, name, action: "next" }),
         headers: { "Content-Type": "application/json" }
       });
       if (!response.ok) {
         throw new Error("finish_failed");
       }
-      router.push(`/diskussion/auswertung/${code}`);
+      router.push(`/diskussion/schritt/5?code=${code}&name=${encodeURIComponent(name)}`);
     } catch {
-      setDiscussionActionError("Auswertung konnte nicht freigegeben werden.");
+      setDiscussionActionError("Fazit konnte nicht freigegeben werden.");
     } finally {
       setDiscussionActionLoading(false);
     }
@@ -1036,9 +1151,96 @@ export default function DiscussionStepPage() {
         ...prev,
         [conclusionId]: [...(prev[conclusionId] ?? []), comment]
       }));
+      setCommentLikeCounts((prev) => ({ ...prev, [comment.id]: prev[comment.id] ?? 0 }));
       setCommentDrafts((prev) => ({ ...prev, [conclusionId]: "" }));
     } catch {
       setFazitError("Kommentar konnte nicht gespeichert werden.");
+    }
+  }
+
+  async function handleConclusionLikeToggle(conclusion: any) {
+    if (!userId) return;
+    setFazitError("");
+    const liked = Boolean(conclusionLikedByUser[conclusion.id]);
+    try {
+      if (liked) {
+        const response = await fetch("/api/discussionpoint-conclusion-likes", {
+          method: "DELETE",
+          body: JSON.stringify({
+            likerUserId: userId,
+            dpConclusionId: conclusion.id,
+            conclusionWrittenByUserId: conclusion.userId
+          }),
+          headers: { "Content-Type": "application/json" }
+        });
+        if (!response.ok) {
+          throw new Error("unlike_failed");
+        }
+        setConclusionLikedByUser((prev) => ({ ...prev, [conclusion.id]: false }));
+        setConclusionLikeCounts((prev) => ({
+          ...prev,
+          [conclusion.id]: Math.max((prev[conclusion.id] ?? 1) - 1, 0)
+        }));
+      } else {
+        const response = await fetch("/api/discussionpoint-conclusion-likes", {
+          method: "POST",
+          body: JSON.stringify({
+            likerUserId: userId,
+            dpConclusionId: conclusion.id,
+            conclusionWrittenByUserId: conclusion.userId
+          }),
+          headers: { "Content-Type": "application/json" }
+        });
+        if (!response.ok) {
+          throw new Error("like_failed");
+        }
+        setConclusionLikedByUser((prev) => ({ ...prev, [conclusion.id]: true }));
+        setConclusionLikeCounts((prev) => ({
+          ...prev,
+          [conclusion.id]: (prev[conclusion.id] ?? 0) + 1
+        }));
+      }
+    } catch {
+      setFazitError("Zustimmung konnte nicht gespeichert werden.");
+    }
+  }
+
+  async function handleCommentLikeToggle(comment: any) {
+    if (!userId) return;
+    setFazitError("");
+    const liked = Boolean(commentLikedByUser[comment.id]);
+    try {
+      if (liked) {
+        const response = await fetch("/api/comment-likes", {
+          method: "DELETE",
+          body: JSON.stringify({ likerUserId: userId, commentId: comment.id }),
+          headers: { "Content-Type": "application/json" }
+        });
+        if (!response.ok) {
+          throw new Error("unlike_failed");
+        }
+        setCommentLikedByUser((prev) => ({ ...prev, [comment.id]: false }));
+        setCommentLikeCounts((prev) => ({
+          ...prev,
+          [comment.id]: Math.max((prev[comment.id] ?? 1) - 1, 0)
+        }));
+      } else {
+        const response = await fetch("/api/comment-likes", {
+          method: "POST",
+          body: JSON.stringify({ likerUserId: userId, commentId: comment.id }),
+          headers: { "Content-Type": "application/json" }
+        });
+        if (!response.ok) {
+          throw new Error("like_failed");
+        }
+        setCommentLikedByUser((prev) => ({ ...prev, [comment.id]: true }));
+        setCommentLikeCounts((prev) => ({
+          ...prev,
+          [comment.id]: (prev[comment.id] ?? 0) + 1
+        }));
+      }
+    } catch {
+      setFazitError("Zustimmung konnte nicht gespeichert werden.");
     }
   }
 
@@ -1107,13 +1309,13 @@ export default function DiscussionStepPage() {
       return (
         <div className="container mx-auto space-y-4 pt-12">
           <p className="text-muted">
-            Die Diskussion ist abgeschlossen. Die Auswertung ist verfuegbar.
+            Die Diskussion ist abgeschlossen. Das Fazit ist verfuegbar.
           </p>
           <Link
-            href={`/diskussion/auswertung/${code}`}
+            href={`/diskussion/schritt/5?code=${code}&name=${encodeURIComponent(name)}`}
             className={buttonStyles({ variant: "primary", size: "md" })}
           >
-            Zur Auswertung
+            Zum Fazit
           </Link>
         </div>
       );
@@ -1867,6 +2069,22 @@ export default function DiscussionStepPage() {
                                       {userDirectory[conclusion.userId]?.name ?? "Unbekannt"}
                                     </p>
                                   </div>
+                                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+                                    <Button
+                                      size="sm"
+                                      variant={
+                                        conclusionLikedByUser[conclusion.id] ? "outline" : "primary"
+                                      }
+                                      onClick={() => handleConclusionLikeToggle(conclusion)}
+                                    >
+                                      {conclusionLikedByUser[conclusion.id]
+                                        ? "Gefaellt mir nicht mehr"
+                                        : "Gefaellt mir"}
+                                    </Button>
+                                    <span>
+                                      {conclusionLikeCounts[conclusion.id] ?? 0} Zustimmungen
+                                    </span>
+                                  </div>
                                   <div className="space-y-2">
                                     {comments.length > 0 ? (
                                       comments.map((comment) => (
@@ -1884,6 +2102,22 @@ export default function DiscussionStepPage() {
                                                 )}`
                                               : ""}
                                           </p>
+                                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
+                                            <Button
+                                              size="sm"
+                                              variant={
+                                                commentLikedByUser[comment.id] ? "outline" : "primary"
+                                              }
+                                              onClick={() => handleCommentLikeToggle(comment)}
+                                            >
+                                              {commentLikedByUser[comment.id]
+                                                ? "Gefaellt mir nicht mehr"
+                                                : "Gefaellt mir"}
+                                            </Button>
+                                            <span>
+                                              {commentLikeCounts[comment.id] ?? 0} Zustimmungen
+                                            </span>
+                                          </div>
                                         </div>
                                       ))
                                     ) : (

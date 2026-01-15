@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/src/lib/prisma";
 
-type ControlAction = "start" | "next" | "finish";
+type ControlAction = "start" | "next" | "prev" | "finish";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -39,6 +39,8 @@ export async function POST(request: Request) {
   } else if (action === "next") {
     const baseStep = discussion.step === 0 ? 1 : discussion.step + 1;
     nextStep = Math.min(baseStep, 6);
+  } else if (action === "prev") {
+    nextStep = Math.max(discussion.step - 1, 0);
   } else if (action === "finish") {
     nextStep = 6;
   } else {

@@ -5,6 +5,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const discussionPointId = String(searchParams.get("discussionPointId") ?? "").trim();
   const conclusionUserId = String(searchParams.get("conclusionUserId") ?? "").trim();
+  const likerUserId = String(searchParams.get("likerUserId") ?? "").trim();
 
   if (!discussionPointId || !conclusionUserId) {
     return NextResponse.json({ error: "Invalid data" }, { status: 400 });
@@ -15,14 +16,28 @@ export async function GET(request: Request) {
   });
 
   if (!conclusion) {
-    return NextResponse.json({ count: 0 });
+    return NextResponse.json({ count: 0, liked: false });
   }
 
   const count = await prisma.discussionPointConclusionLike.count({
     where: { dpConclusionId: conclusion.id, conclusionWrittenByUserId: conclusionUserId }
   });
 
-  return NextResponse.json({ count });
+  if (!likerUserId) {
+    return NextResponse.json({ count });
+  }
+
+  const existing = await prisma.discussionPointConclusionLike.findUnique({
+    where: {
+      likerUserId_dpConclusionId_conclusionWrittenByUserId: {
+        likerUserId,
+        dpConclusionId: conclusion.id,
+        conclusionWrittenByUserId: conclusionUserId
+      }
+    }
+  });
+
+  return NextResponse.json({ count, liked: Boolean(existing) });
 }
 
 export async function POST(request: Request) {
