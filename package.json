@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "CHOKIDAR_USEPOLLING=1 WATCHPACK_POLLING=true prisma migrate dev --name dev && next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
