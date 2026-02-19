@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/src/components/ui/Input";
 import { Button } from "@/src/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/Card";
 
-export default function JoinDiscussionPage() {
+function JoinDiscussionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [code, setCode] = useState("");
@@ -70,5 +70,20 @@ export default function JoinDiscussionPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function JoinDiscussionPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="container mx-auto space-y-4 pb-20 pt-12">
+          <h1 className="text-3xl font-semibold">Diskussion beitreten</h1>
+          <p className="text-muted">Seite wird geladen…</p>
+        </div>
+      }
+    >
+      <JoinDiscussionContent />
+    </Suspense>
   );
 }
