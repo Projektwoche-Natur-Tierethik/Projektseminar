@@ -32,6 +32,7 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
   }
 
   const name = searchParams?.name ?? "";
+  const codeText = String(discussion.code);
   const shouldAutoRedirect = Boolean(name);
   const settings = normalizeDiscussionSettings({
     normsPartOf: discussion.normsPartOf,
@@ -66,7 +67,7 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-xl font-semibold text-ink">{discussion.code}</p>
-            <CopyCodeButton code={discussion.code} />
+            <CopyCodeButton code={codeText} />
           </CardContent>
         </Card>
 
@@ -78,7 +79,7 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
             <p className="text-sm text-muted">
               Direkt zum Beitreten ohne Codeeingabe.
             </p>
-            <CopyJoinLinkButton code={discussion.code} />
+            <CopyJoinLinkButton code={codeText} />
           </CardContent>
         </Card>
 
@@ -87,7 +88,7 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
             <CardTitle>QR-Code</CardTitle>
           </CardHeader>
           <CardContent>
-            <JoinQrCode code={discussion.code} />
+            <JoinQrCode code={codeText} />
           </CardContent>
         </Card>
       </div>
@@ -164,7 +165,7 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
               </div>
             )}
             <HostControls
-              code={discussion.code}
+              code={codeText}
               name={name}
               initialStep={currentStep}
               settings={settings}

@@ -8,6 +8,7 @@ type StepperProps = {
 };
 
 export function Stepper({ steps, current, onStepClick, maxClickableStep }: StepperProps) {
+  const resolvedMaxClickableStep = maxClickableStep ?? null;
   return (
     <div className="flex flex-wrap gap-3">
       {steps.map((step) => (
@@ -18,12 +19,16 @@ export function Stepper({ steps, current, onStepClick, maxClickableStep }: Stepp
             current === step.step
               ? "bg-accent text-white"
               : "bg-surface text-muted",
-            onStepClick && maxClickableStep !== null && step.step <= maxClickableStep
+            onStepClick &&
+            resolvedMaxClickableStep !== null &&
+            step.step <= resolvedMaxClickableStep
               ? "cursor-pointer hover:text-ink"
               : "cursor-default"
           )}
           type="button"
-          disabled={!(onStepClick && maxClickableStep !== null && step.step <= maxClickableStep)}
+          disabled={
+            !(onStepClick && resolvedMaxClickableStep !== null && step.step <= resolvedMaxClickableStep)
+          }
           onClick={() => {
             if (onStepClick) onStepClick(step.step);
           }}

@@ -1,4 +1,4 @@
-import type { HTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, HTMLAttributes } from "react";
 import { cn } from "@/src/lib/utils";
 
 export function Tabs({
@@ -14,7 +14,7 @@ export function Tab({
   active,
   className,
   ...props
-}: HTMLAttributes<HTMLButtonElement> & { active?: boolean }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { active?: boolean }) {
   return (
     <button
       className={cn(

@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const code = Number(String(body.code ?? "").trim());
   const name = String(body.name ?? "").trim();
-  const values = Array.isArray(body.values) ? body.values : [];
+  const values: unknown[] = Array.isArray(body.values) ? body.values : [];
 
   const discussion = await prisma.discussion.findUnique({ where: { code } });
 

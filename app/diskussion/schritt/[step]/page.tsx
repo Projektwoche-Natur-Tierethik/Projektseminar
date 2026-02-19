@@ -26,6 +26,7 @@ export default function DiscussionStepPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const step = Number(params.step);
+  const canEditConclusion = step === 4 || step === 5;
   const code = searchParams.get("code") ?? "";
   const name = searchParams.get("name") ?? "";
 
@@ -2076,7 +2077,7 @@ export default function DiscussionStepPage() {
                           <p className="text-ink">{point.discussionPoint}</p>
                         </div>
                         {ownConclusion ? (
-                          step === 5 || step === 4 ? (
+                          canEditConclusion ? (
                             <div className="space-y-2">
                               <label className="text-sm font-medium text-ink">Dein Fazit</label>
                               <textarea
