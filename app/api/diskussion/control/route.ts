@@ -38,11 +38,11 @@ export async function POST(request: Request) {
     nextStep = discussion.step > 0 ? discussion.step : 1;
   } else if (action === "next") {
     const baseStep = discussion.step === 0 ? 1 : discussion.step + 1;
-    nextStep = Math.min(baseStep, 6);
+    nextStep = Math.min(baseStep, 7);
   } else if (action === "prev") {
     nextStep = Math.max(discussion.step - 1, 0);
   } else if (action === "finish") {
-    nextStep = 6;
+    nextStep = 7;
   } else {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   }

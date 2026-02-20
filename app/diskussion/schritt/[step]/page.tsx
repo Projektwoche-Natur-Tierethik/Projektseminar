@@ -21,12 +21,46 @@ import {
 } from "@/src/lib/discussion-settings";
 import type { AggregatedValue } from "@/src/types/discussion";
 
+const begriffsklaerungInklusionsproblem = {
+  leitfrage: "Wer hat moralischen Selbstwert?",
+  einordnung:
+    "Eine der zentralen Fragestellungen der Umwelt- und Tierethik ist die Bestimmung derjenigen Wesen, die um ihrer selbst willen moralisch zu berücksichtigen sind. Diese erheben den Anspruch, nicht rein als Mittel für beliebige Zwecke missbraucht zu werden.",
+  antworten: [
+    {
+      id: "sentientismus",
+      title: "Sentientismus",
+      summary:
+        "Beim Sentientismus, auch Pathozentrismus genannt, ist die Fähigkeit zu fühlen und zu leiden entscheidend. Moralischer Selbstwert gilt also für empfindungsfähige Wesen",
+      focus: "Kriterium: Empfindungsfähigkeit (Sentienz)"
+    },
+    {
+      id: "biozentrik",
+      title: "Biozentrik",
+      summary: "Alles Lebendige besitzt Eigenwert, nicht nur empfindungsfähige Individuen.",
+      focus: "Kriterium: Leben als solches"
+    },
+    {
+      id: "oekozentrismus",
+      title: "Ökozentrismus",
+      summary: "Moralischer Selbstwert liegt bei Ökosystemen, Arten und Gemeinschaften als Ganzem.",
+      focus: "Kriterium: Integrität und Stabilität von Ökosystemen"
+    },
+    {
+      id: "pluralistischer-holismus",
+      title: "Pluralistischer Holismus",
+      summary:
+        "Mehrere Ebenen haben Eigenwert: Individuen, Arten und Ökosysteme. Niemand wird aus der moralischen Gemeinschaft ausgeschlossen.",
+      focus: "Kriterium: Keines"
+    }
+  ]
+};
+
 export default function DiscussionStepPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
   const step = Number(params.step);
-  const canEditConclusion = step === 4 || step === 5;
+  const canEditConclusion = step === 5 || step === 6;
   const code = searchParams.get("code") ?? "";
   const name = searchParams.get("name") ?? "";
 
@@ -106,6 +140,11 @@ export default function DiscussionStepPage() {
   const [discussionTheme, setDiscussionTheme] = useState("");
   const [currentDiscussionPointId, setCurrentDiscussionPointId] = useState<string | null>(null);
   const [participantId, setParticipantId] = useState<string | null>(null);
+  const [participantMainConclusion, setParticipantMainConclusion] = useState<string | null>(null);
+  const [inclusionDraft, setInclusionDraft] = useState("");
+  const [inclusionSaving, setInclusionSaving] = useState(false);
+  const [inclusionError, setInclusionError] = useState("");
+  const [participantsWithUser, setParticipantsWithUser] = useState<any[]>([]);
   const [hasSkipped, setHasSkipped] = useState(false);
   const [discussionActionError, setDiscussionActionError] = useState("");
   const [discussionActionLoading, setDiscussionActionLoading] = useState(false);
@@ -126,6 +165,7 @@ export default function DiscussionStepPage() {
   >({});
   const [fazitError, setFazitError] = useState("");
   const [showOpenQuestions, setShowOpenQuestions] = useState(false);
+  const [showAllGroupNorms, setShowAllGroupNorms] = useState(false);
   const currentPointRef = useRef<string | null>(null);
   const lastSavedValuesSignatureRef = useRef("");
   const savingValuesRef = useRef(false);
@@ -143,13 +183,26 @@ export default function DiscussionStepPage() {
     }, {} as Record<string, string>);
   }, [valueIdByLabel]);
   const participantNameByUserId = useMemo(() => {
-    return adminParticipants.reduce((acc: Record<string, string>, item: any) => {
-      if (item.userId && item.user?.name) {
-        acc[item.userId] = item.user.name;
-      }
-      return acc;
-    }, {});
-  }, [adminParticipants]);
+    const directoryFromParticipants = [...participantsWithUser, ...adminParticipants].reduce(
+      (acc: Record<string, string>, item: any) => {
+        if (item?.userId && item?.user?.name) {
+          acc[String(item.userId)] = String(item.user.name);
+        }
+        return acc;
+      },
+      {}
+    );
+    const directoryFromUsers = Object.entries(userDirectory).reduce(
+      (acc: Record<string, string>, [id, user]) => {
+        if (user?.name) {
+          acc[id] = String(user.name);
+        }
+        return acc;
+      },
+      {}
+    );
+    return { ...directoryFromParticipants, ...directoryFromUsers };
+  }, [participantsWithUser, adminParticipants, userDirectory]);
   const adminNormsByUser = useMemo(() => {
     return adminNorms.reduce((acc: Record<string, any[]>, norm: any) => {
       const key = norm.userId ?? "unbekannt";
@@ -158,17 +211,16 @@ export default function DiscussionStepPage() {
       return acc;
     }, {});
   }, [adminNorms]);
+  const sortedGroupNorms = useMemo(() => {
+    return [...adminNorms].sort((left, right) => {
+      return String(left?.norm ?? "").localeCompare(String(right?.norm ?? ""), "de-DE");
+    });
+  }, [adminNorms]);
   const topValueCounts = useMemo(() => {
     return topValues.reduce((acc, item) => {
       acc[item.value] = item.count;
       return acc;
     }, {} as Record<string, number>);
-  }, [topValues]);
-  const zeroVoteValues = useMemo(() => {
-    const valuesWithVotes = new Set(topValues.map((item) => item.value));
-    return valuesList
-      .filter((label) => !valuesWithVotes.has(label))
-      .sort((left, right) => left.localeCompare(right, "de-DE"));
   }, [topValues]);
   const selectedValueLabels = useMemo(() => {
     const labelsFromIds = userValueIds
@@ -176,14 +228,12 @@ export default function DiscussionStepPage() {
       .filter(Boolean);
     return new Set([...selectedValues, ...labelsFromIds]);
   }, [selectedValues, userValueIds, valueLabelById]);
-  const catalogValues = useMemo(() => {
-    if (!isHost) return valuesList;
-    return [...valuesList].sort((left, right) => {
-      const diff = (topValueCounts[right] ?? 0) - (topValueCounts[left] ?? 0);
-      if (diff !== 0) return diff;
-      return left.localeCompare(right, "de-DE");
-    });
-  }, [isHost, topValueCounts]);
+  const zeroVoteValues = useMemo(() => {
+    const valuesWithVotes = new Set(topValues.map((item) => item.value));
+    return valuesList
+      .filter((label) => !valuesWithVotes.has(label))
+      .sort((left, right) => left.localeCompare(right, "de-DE"));
+  }, [topValues]);
   const catalogValueIds = useMemo(() => {
     return new Set(
       Object.entries(frameSelections)
@@ -210,8 +260,6 @@ export default function DiscussionStepPage() {
     const available = enabledSteps.filter((item) => item <= currentStep);
     return available.length > 0 ? available[available.length - 1] : enabledSteps[0] ?? currentStep;
   }, [currentStep, enabledSteps]);
-  const maxDisplayStep =
-    currentEnabledStep !== null ? displayStepByActual[currentEnabledStep] ?? null : null;
   const isReviewMode =
     !isHost && currentEnabledStep !== null && currentEnabledStep > step;
   const nextEnabledStep = useMemo(
@@ -226,7 +274,7 @@ export default function DiscussionStepPage() {
   }, [shuffleSeed]);
 
   useEffect(() => {
-    if (!code || (step !== 1 && !(isHost && step === 2))) return;
+    if (!code || (step !== 1 && step !== 2)) return;
     let isMounted = true;
     const fetchTopValues = () => {
       fetch(`/api/diskussion/werte?code=${code}&t=${Date.now()}`)
@@ -247,7 +295,7 @@ export default function DiscussionStepPage() {
       isMounted = false;
       window.clearInterval(interval);
     };
-  }, [step, code, isHost]);
+  }, [step, code]);
 
   useEffect(() => {
     if (!code) return;
@@ -409,7 +457,7 @@ export default function DiscussionStepPage() {
   }, [discussionId]);
 
   useEffect(() => {
-    if (!discussionId || !userId || step !== 2) return;
+    if (!discussionId || !userId || step !== 3) return;
     let isMounted = true;
     fetch(
       `/api/norms?discussionId=${encodeURIComponent(
@@ -431,7 +479,7 @@ export default function DiscussionStepPage() {
   }, [discussionId, userId, step]);
 
   useEffect(() => {
-    if (!discussionId || !userId || step !== 1) return;
+    if (!discussionId || !userId || (step !== 1 && step !== 2)) return;
     let isMounted = true;
     fetch(
       `/api/user-values?discussionId=${encodeURIComponent(
@@ -454,7 +502,7 @@ export default function DiscussionStepPage() {
   }, [discussionId, userId, step]);
 
   useEffect(() => {
-    if (step !== 1) return;
+    if (step !== 1 && step !== 2) return;
     const valuesFromIds = userValueIds
       .map((valueId) => valueLabelById[valueId])
       .filter(Boolean);
@@ -463,7 +511,7 @@ export default function DiscussionStepPage() {
   }, [step, userValueIds, valueLabelById]);
 
   useEffect(() => {
-    if (!discussionId || !userId || step !== 4) return;
+    if (!discussionId || !userId || step !== 5) return;
     let isMounted = true;
     const fetchUserQuestions = () => {
       fetch(
@@ -489,7 +537,7 @@ export default function DiscussionStepPage() {
   }, [discussionId, userId, step]);
 
   useEffect(() => {
-    if (!discussionId || !isHost || step !== 2) return;
+    if (!discussionId || step < 3) return;
     let isMounted = true;
     const fetchNorms = () => {
       fetch(`/api/norms?discussionId=${encodeURIComponent(discussionId)}`)
@@ -509,10 +557,10 @@ export default function DiscussionStepPage() {
       isMounted = false;
       window.clearInterval(interval);
     };
-  }, [discussionId, isHost, step]);
+  }, [discussionId, step]);
 
   useEffect(() => {
-    if (!discussionId || (step !== 4 && step !== 5)) return;
+    if (!discussionId || (step !== 5 && step !== 6)) return;
     let isMounted = true;
     const fetchQuestions = () => {
       fetch(
@@ -537,7 +585,7 @@ export default function DiscussionStepPage() {
   }, [discussionId, step]);
 
   useEffect(() => {
-    if (!discussionId || step !== 4) return;
+    if (!discussionId || step !== 5) return;
     let isMounted = true;
     const fetchDiscussionState = () => {
       fetch(`/api/discussions?discussionId=${encodeURIComponent(discussionId)}`)
@@ -560,7 +608,7 @@ export default function DiscussionStepPage() {
   }, [discussionId, step]);
 
   useEffect(() => {
-    if (!discussionId || step !== 5) return;
+    if (!discussionId || (step !== 5 && step !== 6)) return;
     let isMounted = true;
     fetch("/api/users")
       .then((res) => res.json())
@@ -584,12 +632,12 @@ export default function DiscussionStepPage() {
   }, [discussionId, step]);
 
   useEffect(() => {
-    if (!discussionId || (step !== 4 && step !== 5)) return;
+    if (!discussionId || (step !== 5 && step !== 6)) return;
     let isMounted = true;
     const fetchConclusions = async () => {
       const completed = discussionPoints.filter((item) => item.markedAsComplete);
       const currentPoint =
-        step === 4 && currentDiscussionPointId
+        step === 5 && currentDiscussionPointId
           ? discussionPoints.find((item) => item.id === currentDiscussionPointId)
           : null;
       const relevantPoints = currentPoint ? [currentPoint, ...completed] : completed;
@@ -633,7 +681,7 @@ export default function DiscussionStepPage() {
   }, [discussionId, discussionPoints, step, currentDiscussionPointId]);
 
   useEffect(() => {
-    if ((step !== 4 && step !== 5) || !userId) return;
+    if ((step !== 5 && step !== 6) || !userId) return;
     const updates: Record<string, string> = {};
     Object.entries(conclusionsByPoint).forEach(([pointId, conclusions]) => {
       const own = (conclusions as any[]).find((item) => item.userId === userId);
@@ -655,7 +703,7 @@ export default function DiscussionStepPage() {
   }, [step, userId, conclusionsByPoint]);
 
   useEffect(() => {
-    if (!discussionId || step !== 5) return;
+    if (!discussionId || (step !== 5 && step !== 6)) return;
     let isMounted = true;
     const fetchComments = async () => {
       const allConclusions = Object.values(conclusionsByPoint).flat();
@@ -706,7 +754,7 @@ export default function DiscussionStepPage() {
   }, [discussionId, conclusionsByPoint, step]);
 
   useEffect(() => {
-    if (!discussionId || step !== 5) return;
+    if (!discussionId || (step !== 5 && step !== 6)) return;
     let isMounted = true;
     const fetchConclusionLikes = async () => {
       const allConclusions = Object.values(conclusionsByPoint).flat();
@@ -763,7 +811,7 @@ export default function DiscussionStepPage() {
   }, [discussionId, conclusionsByPoint, step, userId]);
 
   useEffect(() => {
-    if (!discussionId || step !== 5) return;
+    if (!discussionId || (step !== 5 && step !== 6)) return;
     let isMounted = true;
     const fetchCommentLikes = async () => {
       const allComments = Object.values(commentsByConclusion).flat();
@@ -817,7 +865,7 @@ export default function DiscussionStepPage() {
   }, [discussionId, commentsByConclusion, step, userId]);
 
   useEffect(() => {
-    if (step !== 4) return;
+    if (step !== 5) return;
     let isMounted = true;
     const fetchPointLikes = async () => {
       if (discussionPoints.length === 0) {
@@ -870,7 +918,7 @@ export default function DiscussionStepPage() {
   }, [discussionPoints, step, userId]);
 
   useEffect(() => {
-    if (!discussionId || !userId || step !== 4) return;
+    if (!discussionId || !userId || step !== 5) return;
     let isMounted = true;
     fetch(
       `/api/participants?discussionId=${encodeURIComponent(
@@ -895,7 +943,62 @@ export default function DiscussionStepPage() {
   }, [discussionId, userId, step]);
 
   useEffect(() => {
-    if (step !== 4) return;
+    if (!discussionId || !userId || step !== 4) return;
+    let isMounted = true;
+    fetch(
+      `/api/participants?discussionId=${encodeURIComponent(
+        discussionId
+      )}&userId=${encodeURIComponent(userId)}`
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        if (!isMounted) return;
+        const participant = Array.isArray(data.participants) ? data.participants[0] : null;
+        setParticipantId(participant?.id ?? null);
+        const mainConclusion = participant?.mainConclusion ?? null;
+        setParticipantMainConclusion(mainConclusion);
+        setInclusionDraft(mainConclusion ?? "");
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setParticipantId(null);
+        setParticipantMainConclusion(null);
+        setInclusionDraft("");
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [discussionId, userId, step]);
+
+  useEffect(() => {
+    if (!discussionId || step < 4) return;
+    if (step !== 4 && !settings.normsEnabled) return;
+    let isMounted = true;
+    const fetchParticipants = () => {
+      fetch(
+        `/api/participants?discussionId=${encodeURIComponent(discussionId)}&includeUser=true`
+      )
+        .then((res) => res.json())
+        .then((data) => {
+          if (!isMounted) return;
+          const participants = Array.isArray(data.participants) ? data.participants : [];
+          setParticipantsWithUser(participants.filter((item: any) => !item.admin));
+        })
+        .catch(() => {
+          if (!isMounted) return;
+          setParticipantsWithUser([]);
+        });
+    };
+    fetchParticipants();
+    const interval = window.setInterval(fetchParticipants, 5000);
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+    };
+  }, [discussionId, settings.normsEnabled, step]);
+
+  useEffect(() => {
+    if (step !== 5) return;
     if (currentPointRef.current === currentDiscussionPointId) return;
     currentPointRef.current = currentDiscussionPointId ?? null;
     setHasSkipped(false);
@@ -927,16 +1030,12 @@ export default function DiscussionStepPage() {
 
   useEffect(() => {
     if (isHost || currentEnabledStep === null || currentEnabledStep <= step) return;
-    if (step === 1 && currentEnabledStep > 1) {
-      router.push(`/diskussion/werte/${code}?name=${encodeURIComponent(name)}`);
-      return;
-    }
-    if (currentEnabledStep >= 1 && currentEnabledStep <= 5) {
+    if (currentEnabledStep >= 1 && currentEnabledStep <= 6) {
       router.push(`/diskussion/schritt/${currentEnabledStep}?code=${code}&name=${encodeURIComponent(name)}`);
       return;
     }
-    if (currentEnabledStep > 5) {
-      router.push(`/diskussion/schritt/5?code=${code}&name=${encodeURIComponent(name)}`);
+    if (currentEnabledStep > 6) {
+      router.push(`/diskussion/schritt/6?code=${code}&name=${encodeURIComponent(name)}`);
     }
   }, [isHost, currentEnabledStep, step, code, name, router]);
 
@@ -1129,6 +1228,39 @@ export default function DiscussionStepPage() {
     }
   }
 
+  async function handleInclusionSubmit() {
+    if (!participantId) {
+      setInclusionError("Antwort konnte nicht gespeichert werden.");
+      return;
+    }
+    const text = inclusionDraft.trim();
+    if (!text) {
+      setInclusionError("Bitte eine Begründung eingeben.");
+      return;
+    }
+    setInclusionSaving(true);
+    setInclusionError("");
+    try {
+      const response = await fetch("/api/participants", {
+        method: "PUT",
+        body: JSON.stringify({ participantId, mainConclusion: text }),
+        headers: { "Content-Type": "application/json" }
+      });
+      if (!response.ok) {
+        throw new Error("inclusion_failed");
+      }
+      const data = await response.json();
+      const saved = data?.participant?.mainConclusion ?? text;
+      setParticipantMainConclusion(saved);
+      setInclusionDraft(saved);
+      setStatusMessage("Antwort gespeichert. Warte auf die Freigabe des nächsten Schritts.");
+    } catch {
+      setInclusionError("Antwort konnte nicht gespeichert werden.");
+    } finally {
+      setInclusionSaving(false);
+    }
+  }
+
   async function handleFrameToggle(label: string, nextValue: boolean) {
     if (!discussionId || !adminUserId) return;
     const valueId = valueIdByLabel[label];
@@ -1161,7 +1293,7 @@ export default function DiscussionStepPage() {
         setFrameSelections((prev) => ({ ...prev, [valueId]: nextValue }));
       }
     } catch {
-      setAdminError("Wertekatalog konnte nicht gespeichert werden.");
+      setAdminError("Werterahmen konnte nicht gespeichert werden.");
     }
   }
 
@@ -1289,22 +1421,22 @@ export default function DiscussionStepPage() {
     }
   }
 
-  async function handleFinishDiscussion() {
-    if (!code || !name) return;
+  async function handlePublishDiscussion() {
+    if (!code || !name || !isHost) return;
     setDiscussionActionLoading(true);
     setDiscussionActionError("");
     try {
       const response = await fetch("/api/diskussion/control", {
         method: "POST",
-        body: JSON.stringify({ code, name, action: "next" }),
+        body: JSON.stringify({ code, name, action: "finish" }),
         headers: { "Content-Type": "application/json" }
       });
       if (!response.ok) {
-        throw new Error("finish_failed");
+        throw new Error("publish_failed");
       }
-      router.push(`/diskussion/schritt/5?code=${code}&name=${encodeURIComponent(name)}`);
+      setStatusMessage("Diskussion veröffentlicht.");
     } catch {
-      setDiscussionActionError("Fazit konnte nicht freigegeben werden.");
+      setDiscussionActionError("Diskussion konnte nicht veröffentlicht werden.");
     } finally {
       setDiscussionActionLoading(false);
     }
@@ -1312,12 +1444,12 @@ export default function DiscussionStepPage() {
 
   function handleHostStepChange(nextStep: number) {
     setCurrentStep(nextStep);
-    if (nextStep >= 1 && nextStep <= 5 && nextStep !== step) {
+    if (nextStep >= 1 && nextStep <= 6 && nextStep !== step) {
       router.push(`/diskussion/schritt/${nextStep}?code=${code}&name=${encodeURIComponent(name)}`);
       return;
     }
-    if (nextStep > 5) {
-      router.push(`/diskussion/schritt/5?code=${code}&name=${encodeURIComponent(name)}`);
+    if (nextStep > 6) {
+      router.push(`/diskussion/schritt/6?code=${code}&name=${encodeURIComponent(name)}`);
     }
   }
 
@@ -1607,14 +1739,14 @@ export default function DiscussionStepPage() {
       );
     }
 
-    if (currentStep !== null && currentStep > 5) {
+    if (currentStep !== null && currentStep > 6) {
       return (
         <div className="container mx-auto space-y-4 pt-12">
           <p className="text-muted">
             Die Diskussion ist abgeschlossen. Das Fazit ist verfügbar.
           </p>
           <Link
-            href={`/diskussion/schritt/5?code=${code}&name=${encodeURIComponent(name)}`}
+            href={`/diskussion/schritt/6?code=${code}&name=${encodeURIComponent(name)}`}
             className={buttonStyles({ variant: "primary", size: "md" })}
           >
             Zum Fazit
@@ -1625,8 +1757,8 @@ export default function DiscussionStepPage() {
   }
 
   const stepPrompt =
-    step === 4
-      ? `Stelle bis zu ${questionsCount} Fragen, die du gerne diskutieren möchtest.`
+    step === 5
+      ? `Thema der Diskussion: ${discussionTheme ? discussionTheme : "—"}`
       : stepData.prompt;
 
   const activeDiscussionPoint = discussionPoints.find(
@@ -1662,16 +1794,6 @@ export default function DiscussionStepPage() {
       <Stepper
         steps={stepLabels}
         current={displayStepNumber}
-        maxClickableStep={maxDisplayStep ?? null}
-        onStepClick={(clickedDisplayStep) => {
-          const entry = enabledStepEntries.find(
-            (item) => item.displayStep === clickedDisplayStep
-          );
-          if (!entry) return;
-          router.push(
-            `/diskussion/schritt/${entry.step}?code=${code}&name=${encodeURIComponent(name)}`
-          );
-        }}
       />
 
       <header className="space-y-2">
@@ -1680,35 +1802,17 @@ export default function DiscussionStepPage() {
         </h1>
         <p className="text-muted">{stepPrompt}</p>
       </header>
-      {step > 1 && !(isHost && step === 2) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Wertekatalog</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted">
-            {selectedCatalogValues.length > 0
-              ? selectedCatalogValues.join(", ")
-              : "Noch kein Wertekatalog festgelegt."}
-          </CardContent>
-        </Card>
-      )}
       {!isHost &&
         currentEnabledStep !== null &&
         currentEnabledStep > step &&
-        currentEnabledStep <= 5 && (
+        currentEnabledStep <= 6 && (
         <Card>
           <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
             <p className="text-sm text-muted">
               Der nächste Schritt ist freigeschaltet.
             </p>
           <Link
-            href={
-              step === 1 && currentEnabledStep > 1
-                ? `/diskussion/werte/${code}?name=${encodeURIComponent(name)}`
-                : `/diskussion/schritt/${currentEnabledStep}?code=${code}&name=${encodeURIComponent(
-                    name
-                  )}`
-            }
+            href={`/diskussion/schritt/${currentEnabledStep}?code=${code}&name=${encodeURIComponent(name)}`}
             className={buttonStyles({ variant: "primary", size: "sm" })}
           >
             Zum nächsten Schritt
@@ -1719,16 +1823,16 @@ export default function DiscussionStepPage() {
 
       {step === 1 ? (
         <div className="grid gap-6">
-        {isHost ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>Wertekatalog</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-muted">
-                <p>
-                  Diese Ansicht ist für die Projektion im Kurs. Der Wertekatalog wird im
-                  nächsten Schritt über das Rankingdiagramm festgelegt.
-                </p>
+	        {isHost ? (
+	          <Card>
+	            <CardHeader>
+	              <CardTitle>Werterahmen</CardTitle>
+	            </CardHeader>
+	            <CardContent className="space-y-4 text-sm text-muted">
+	                <p>
+	                  Diese Ansicht ist für die Projektion im Kurs. Der Werterahmen wird im
+	                  nächsten Schritt über das Rankingdiagramm festgelegt.
+	                </p>
                 {participantCount !== null && readyCount !== null && (
                   <p className="text-xs text-muted">
                     Bereitschaft: {readyCount} / {participantCount}
@@ -1740,7 +1844,7 @@ export default function DiscussionStepPage() {
                   </p>
                 )}
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {catalogValues.map((label) => {
+                    {valuesList.map((label) => {
                       return (
                         <div
                           key={label}
@@ -1825,35 +1929,42 @@ export default function DiscussionStepPage() {
               </Card>
             )}
         </div>
-      ) : step === 2 ? (
+      ) : (step === 2 || step === 3) ? (
         <div className={isHost ? "grid gap-6" : "grid gap-6 lg:grid-cols-[1.3fr_0.7fr]"}>
-          {isHost && (
+          {step === 2 && (
             <Card>
               <CardHeader>
                 <CardTitle>Rankingdiagramm</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-muted">
-                <p className="text-xs text-muted">
-                  Wähle Balken aus, um den Wertekatalog festzulegen.
-                </p>
+                {isHost ? (
+                  <p className="text-xs text-muted">
+                    Wähle Balken aus, um den Werterahmen festzulegen.
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted">
+                    Deine ausgewählten Werte sind markiert. Die Leitung legt den Werterahmen fest.
+                  </p>
+                )}
                 {topValues.length > 0 ? (
                   topValues.map((item) => {
                     const valueId = valueIdByLabel[item.value];
                     const checked = valueId ? Boolean(frameSelections[valueId]) : false;
+                    const chosenByMe = selectedValueLabels.has(item.value);
                     const maxCount = topValues[0]?.count ?? 1;
                     const width = Math.max((item.count / maxCount) * 100, 4);
                     return (
                       <button
                         key={item.value}
                         type="button"
-                        disabled={!valueId || !adminUserId}
+                        disabled={!isHost || !valueId || !adminUserId}
                         onClick={() => {
                           if (!valueId) return;
                           handleFrameToggle(item.value, !checked);
                         }}
                         className={`w-full space-y-2 rounded-xl border border-border px-3 py-2 text-left ${
                           checked ? "bg-accent/10" : "bg-bg"
-                        }`}
+                        } ${chosenByMe ? "ring-2 ring-primary/40" : ""}`}
                       >
                         <div className="flex items-center justify-between gap-3 text-sm">
                           <span className={checked ? "text-ink" : "text-muted"}>{item.value}</span>
@@ -1871,7 +1982,7 @@ export default function DiscussionStepPage() {
                 ) : (
                   <p>Noch keine Daten.</p>
                 )}
-                {zeroVoteValues.length > 0 && (
+                {isHost && zeroVoteValues.length > 0 && (
                   <div className="space-y-2 pt-2">
                     <p className="text-xs text-muted">Werte ohne Stimmen</p>
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -1892,19 +2003,35 @@ export default function DiscussionStepPage() {
                             }`}
                           >
                             <span className="truncate">{label}</span>
-                            <span className={`text-xs ${checked ? "text-white/90" : "text-muted"}`}>
-                              0
-                            </span>
                           </button>
                         );
                       })}
                     </div>
                   </div>
                 )}
+                {!isHost && !isReviewMode && (
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <Button
+                      onClick={() => handleReadyToggle(!isReady)}
+                      variant={isReady ? "outline" : "primary"}
+                      disabled={loading}
+                    >
+                      {isReady ? "Nicht bereit" : "Bereit melden"}
+                    </Button>
+                  </div>
+                )}
+                {statusMessage && <p className="text-sm text-muted">{statusMessage}</p>}
+                {readyUpdatedAt && (
+                  <p className="text-xs text-muted">
+                    Status zuletzt geändert:{" "}
+                    {new Date(readyUpdatedAt).toLocaleString("de-DE")}
+                  </p>
+                )}
               </CardContent>
             </Card>
           )}
-          {!isHost && !isReviewMode && (
+
+          {!isHost && step === 3 && !isReviewMode && (
             <Card>
               <CardHeader>
                 <CardTitle>Normen formulieren</CardTitle>
@@ -1912,10 +2039,10 @@ export default function DiscussionStepPage() {
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted">
                   Formuliere eine Norm und beziehe dich dabei auf einen Wert aus dem
-                  Wertekatalog.
+                  Werterahmen.
                 </p>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-ink">Wert aus dem Wertekatalog</label>
+                  <label className="text-sm font-medium text-ink">Wert aus dem Werterahmen</label>
                   <select
                     className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ring"
                     value={selectedNormValueId}
@@ -1966,12 +2093,45 @@ export default function DiscussionStepPage() {
             </Card>
           )}
 
-          <div className="space-y-4">
-            {isReviewMode && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Meine Normen</CardTitle>
-                </CardHeader>
+	          <div className="space-y-4">
+	            {step === 3 && (settings.normsEnabled || sortedGroupNorms.length > 0) && (
+	              <Card>
+	                <CardHeader>
+	                  <CardTitle>Normen der Gruppe</CardTitle>
+	                </CardHeader>
+	                <CardContent className="space-y-3 text-sm text-muted">
+	                  {sortedGroupNorms.length > 0 ? (
+	                    (showAllGroupNorms ? sortedGroupNorms : sortedGroupNorms.slice(0, 3)).map(
+	                      (norm) => (
+	                        <div key={norm.id} className="space-y-1">
+	                          <p className="text-ink">{norm.norm}</p>
+	                          <p className="text-xs text-muted">
+	                            {participantNameByUserId[norm.userId] ?? "Unbekannt"} · Bezug:{" "}
+	                            {valueLabelById[norm.basedOnValueId] ?? "Unbekannt"}
+	                          </p>
+	                        </div>
+	                      )
+	                    )
+	                  ) : (
+	                    <p>Noch keine Normen erfasst.</p>
+	                  )}
+	                  {sortedGroupNorms.length > 3 && (
+	                    <Button
+	                      size="sm"
+	                      variant="outline"
+	                      onClick={() => setShowAllGroupNorms((prev) => !prev)}
+	                    >
+	                      {showAllGroupNorms ? "Weniger anzeigen" : "Mehr anzeigen"}
+	                    </Button>
+	                  )}
+	                </CardContent>
+	              </Card>
+	            )}
+	            {!isHost && step === 3 && (
+	              <Card>
+	                <CardHeader>
+	                  <CardTitle>Meine Normen</CardTitle>
+	                </CardHeader>
                 <CardContent className="space-y-2 text-sm text-muted">
                   {userNorms.length > 0 ? (
                     userNorms.map((norm) => (
@@ -1988,7 +2148,7 @@ export default function DiscussionStepPage() {
                 </CardContent>
               </Card>
             )}
-            {!isHost && (
+            {!isHost && step === 3 && (
             <Card>
               <CardHeader>
                 <CardTitle>Werterahmen</CardTitle>
@@ -2001,7 +2161,7 @@ export default function DiscussionStepPage() {
                     </div>
                   ))
                 ) : (
-                  <p>Noch kein Wertekatalog festgelegt.</p>
+                  <p>Noch kein Werterahmen festgelegt.</p>
                 )}
               </CardContent>
             </Card>
@@ -2040,28 +2200,314 @@ export default function DiscussionStepPage() {
               </Card>
             )}
 
-            
-          </div>
-        </div>
-      ) : step === 4 ? (
-        <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Oberthema der Diskussion</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted">
-                {discussionTheme ? (
-                  <p className="text-ink">{discussionTheme}</p>
-                ) : (
-                  <p>Noch kein Thema hinterlegt.</p>
-                )}
-              </CardContent>
-            </Card>
-            {!isHost && !isReviewMode && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Fragen einreichen</CardTitle>
+	            
+	          </div>
+	        </div>
+	      ) : step === 4 ? (
+	        <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
+	          <div className="space-y-4">
+	            {!isHost && (
+	              <Card>
+	                <CardHeader>
+	                  <CardTitle>Deine Begründung</CardTitle>
+	                </CardHeader>
+			                <CardContent className="space-y-4">
+			                  <div>
+			                    <p className="text-sm text-muted">{stepPrompt}</p>
+			                    {stepData.helper && <p className="text-xs text-muted">{stepData.helper}</p>}
+			                  </div>
+			                  {participantMainConclusion ? (
+			                    <div className="rounded-xl border border-border bg-bg px-3 py-2">
+			                      <p className="whitespace-pre-wrap text-ink">{participantMainConclusion}</p>
+			                      <p className="mt-2 text-xs text-muted">
+			                        Du kannst in diesem Schritt nur eine Begründung abgeben.
+	                      </p>
+	                    </div>
+	                  ) : (
+	                    <div className="space-y-2">
+	                      <textarea
+	                        rows={6}
+	                        className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-ring"
+	                        placeholder="Deine Begründung..."
+	                        value={inclusionDraft}
+	                        onChange={(event) => setInclusionDraft(event.target.value)}
+	                        disabled={inclusionSaving}
+	                      />
+	                      <Button
+	                        onClick={handleInclusionSubmit}
+	                        disabled={inclusionSaving || !inclusionDraft.trim()}
+	                      >
+	                        Antwort speichern
+	                      </Button>
+	                      {inclusionError && (
+	                        <p className="text-xs text-accent2">{inclusionError}</p>
+	                      )}
+	                    </div>
+	                  )}
+	                  {!isReviewMode && (
+	                    <div className="flex flex-wrap gap-2">
+	                      <Button
+	                        onClick={() => handleReadyToggle(!isReady)}
+	                        variant={isReady ? "outline" : "primary"}
+	                      >
+	                        {isReady ? "Nicht bereit" : "Bereit melden"}
+	                      </Button>
+	                    </div>
+	                  )}
+	                  {statusMessage && <p className="text-sm text-muted">{statusMessage}</p>}
+	                  {readyUpdatedAt && (
+	                    <p className="text-xs text-muted">
+	                      Status zuletzt geändert:{" "}
+	                      {new Date(readyUpdatedAt).toLocaleString("de-DE")}
+	                    </p>
+	                  )}
+	                </CardContent>
+	              </Card>
+	            )}
+		            <Card>
+		              <CardHeader>
+		                <CardTitle>Begründungen der Gruppe</CardTitle>
+		              </CardHeader>
+		              <CardContent className="space-y-3 text-sm text-muted">
+		                <p className="text-xs text-muted">Wer oder was muss geschützt werden?</p>
+		                {participantsWithUser.filter((item) => item.mainConclusion).length > 0 ? (
+		                  participantsWithUser
+		                    .filter((item) => item.mainConclusion)
+		                    .map((participant) => (
+	                      <div
+	                        key={participant.id}
+	                        className="space-y-1 rounded-xl border border-border bg-bg px-3 py-2"
+	                      >
+	                        <p className="text-xs text-muted">
+	                          {participant.user?.name ?? "Unbekannt"}
+	                        </p>
+	                        <p className="whitespace-pre-wrap text-ink">{participant.mainConclusion}</p>
+	                      </div>
+	                    ))
+	                ) : (
+	                  <p>Noch keine Begründungen erfasst.</p>
+	                )}
+	              </CardContent>
+	            </Card>
+		          </div>
+			          <div className="space-y-4">
+			            <Card>
+			              <CardHeader>
+			                <CardTitle>Werterahmen</CardTitle>
+			              </CardHeader>
+			              <CardContent className="space-y-2 text-sm text-muted">
+			                {catalogValueLabels.length > 0 ? (
+			                  catalogValueLabels.map((label) => (
+			                    <div key={label} className="flex items-center justify-between">
+			                      <span>{label}</span>
+			                    </div>
+			                  ))
+			                ) : (
+			                  <p>Noch kein Werterahmen festgelegt.</p>
+			                )}
+			              </CardContent>
+			            </Card>
+			            <Card>
+			              <CardHeader>
+			                <CardTitle>Begriffsklärung: Inklusionsproblem</CardTitle>
+			              </CardHeader>
+		              <CardContent>
+		                <details className="text-sm text-muted">
+		                  <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.2em] text-ink">
+		                    Anzeigen
+		                  </summary>
+		                  <div className="mt-3 space-y-4">
+		                    <div className="space-y-2">
+		                      <p className="text-xs uppercase tracking-[0.2em] text-muted">
+		                        Leitfrage
+		                      </p>
+		                      <p className="text-ink">{begriffsklaerungInklusionsproblem.leitfrage}</p>
+		                      <p>{begriffsklaerungInklusionsproblem.einordnung}</p>
+		                    </div>
+		                    <div className="space-y-2">
+		                      <p className="text-xs uppercase tracking-[0.2em] text-muted">
+		                        Mögliche Antworten
+		                      </p>
+		                      <div className="space-y-2">
+		                        {begriffsklaerungInklusionsproblem.antworten.map((antwort) => (
+		                          <div
+		                            key={antwort.id}
+		                            className="rounded-2xl border border-border bg-bg px-4 py-3"
+		                          >
+		                            <p className="text-sm font-semibold text-ink">{antwort.title}</p>
+		                            <p className="mt-2 text-sm text-muted">{antwort.summary}</p>
+		                            <p className="mt-2 text-sm text-ink">{antwort.focus}</p>
+		                          </div>
+		                        ))}
+		                      </div>
+		                    </div>
+		                  </div>
+		                </details>
+		              </CardContent>
+		            </Card>
+		            {(settings.normsEnabled || sortedGroupNorms.length > 0) && (
+		              <Card>
+		                <CardHeader>
+		                  <CardTitle>Normen der Gruppe</CardTitle>
+		                </CardHeader>
+	                <CardContent className="space-y-3 text-sm text-muted">
+	                  {sortedGroupNorms.length > 0 ? (
+	                    (showAllGroupNorms ? sortedGroupNorms : sortedGroupNorms.slice(0, 3)).map(
+	                      (norm) => (
+	                        <div key={norm.id} className="space-y-1">
+	                          <p className="text-ink">{norm.norm}</p>
+	                          <p className="text-xs text-muted">
+	                            {participantNameByUserId[norm.userId] ?? "Unbekannt"} · Bezug:{" "}
+	                            {valueLabelById[norm.basedOnValueId] ?? "Unbekannt"}
+	                          </p>
+	                        </div>
+	                      )
+	                    )
+	                  ) : (
+	                    <p>Noch keine Normen erfasst.</p>
+	                  )}
+	                  {sortedGroupNorms.length > 3 && (
+	                    <Button
+	                      size="sm"
+	                      variant="outline"
+	                      onClick={() => setShowAllGroupNorms((prev) => !prev)}
+	                    >
+	                      {showAllGroupNorms ? "Weniger anzeigen" : "Mehr anzeigen"}
+	                    </Button>
+	                  )}
+	                </CardContent>
+	              </Card>
+	            )}
+	            {isHost && currentStep !== null && (
+	              <Card>
+	                <CardHeader>
+	                  <CardTitle>Leitung</CardTitle>
+	                </CardHeader>
+	                <CardContent className="space-y-4 text-sm text-muted">
+	                  <HostControls
+	                    code={code}
+	                    name={name}
+	                    initialStep={currentStep}
+	                    settings={settings}
+	                    onStepChange={handleHostStepChange}
+	                  />
+	                  {adminParticipants.length > 0 && (
+	                    <div className="space-y-2">
+	                      {adminParticipants.map((item) => (
+	                        <div
+	                          key={item.id}
+	                          className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-bg px-3 py-2"
+	                        >
+	                          <span className="text-ink">{item.user?.name ?? "Unbekannt"}</span>
+	                          <span className="text-xs text-muted">
+	                            {item.continueButton ? "bereit" : "nicht bereit"}
+	                          </span>
+	                        </div>
+	                      ))}
+	                    </div>
+	                  )}
+	                </CardContent>
+	              </Card>
+	            )}
+	          </div>
+	        </div>
+	      ) : step === 5 ? (
+	        <div className="grid gap-6 lg:grid-cols-2">
+	          <div className="space-y-4">
+	            <Card>
+	              <CardHeader>
+	                <CardTitle>Werterahmen</CardTitle>
+	              </CardHeader>
+	              <CardContent className="text-sm text-muted">
+	                {selectedCatalogValues.length > 0 ? (
+	                  <p className="text-ink">{selectedCatalogValues.join(", ")}</p>
+	                ) : (
+	                  <p>Noch kein Werterahmen festgelegt.</p>
+	                )}
+	              </CardContent>
+	            </Card>
+	            {(settings.normsEnabled || sortedGroupNorms.length > 0) && (
+	              <Card>
+	                <CardHeader>
+	                  <CardTitle>Normen der Gruppe</CardTitle>
+	                </CardHeader>
+	                <CardContent className="space-y-3 text-sm text-muted">
+	                  {sortedGroupNorms.length > 0 ? (
+	                    (showAllGroupNorms ? sortedGroupNorms : sortedGroupNorms.slice(0, 3)).map(
+	                      (norm) => (
+	                        <div key={norm.id} className="space-y-1">
+	                          <p className="text-ink">{norm.norm}</p>
+	                          <p className="text-xs text-muted">
+	                            {participantNameByUserId[norm.userId] ?? "Unbekannt"} · Bezug:{" "}
+	                            {valueLabelById[norm.basedOnValueId] ?? "Unbekannt"}
+	                          </p>
+	                        </div>
+	                      )
+	                    )
+	                  ) : (
+	                    <p>Noch keine Normen erfasst.</p>
+	                  )}
+	                  {sortedGroupNorms.length > 3 && (
+	                    <Button
+	                      size="sm"
+	                      variant="outline"
+	                      onClick={() => setShowAllGroupNorms((prev) => !prev)}
+	                    >
+	                      {showAllGroupNorms ? "Weniger anzeigen" : "Mehr anzeigen"}
+	                    </Button>
+	                  )}
+	                </CardContent>
+	              </Card>
+	            )}
+	            {!isHost && (
+	              <Card>
+	                <CardHeader>
+	                  <CardTitle>Meine Fragen</CardTitle>
+	                </CardHeader>
+	                <CardContent className="space-y-2 text-sm text-muted">
+	                  {userQuestions.length > 0 ? (
+	                    userQuestions.map((item) => (
+	                      <div
+	                        key={item.id}
+	                        className="rounded-xl border border-border bg-bg px-3 py-2"
+	                      >
+	                        <p className="text-ink">{item.discussionPoint}</p>
+	                      </div>
+	                    ))
+	                  ) : (
+	                    <p>Noch keine Fragen erfasst.</p>
+	                  )}
+	                </CardContent>
+	              </Card>
+	            )}
+	            {isHost && (
+	              <Card>
+	                <CardHeader>
+	                  <CardTitle>Fragen der Teilnehmenden</CardTitle>
+	                </CardHeader>
+	                <CardContent className="space-y-3 text-sm text-muted">
+	                  {discussionPoints.length > 0 ? (
+	                    discussionPoints.map((item) => (
+	                      <div
+	                        key={item.id}
+	                        className="rounded-xl border border-border bg-bg px-3 py-2"
+	                      >
+	                        <p className="text-ink">{item.discussionPoint}</p>
+	                        <p className="text-xs text-muted">
+	                          {participantNameByUserId[item.writtenByUserId] ?? "Unbekannt"}
+	                        </p>
+	                      </div>
+	                    ))
+	                  ) : (
+	                    <p>Noch keine Fragen erfasst.</p>
+	                  )}
+	                </CardContent>
+	              </Card>
+	            )}
+	            {!isHost && !isReviewMode && (
+	              <Card>
+	                <CardHeader>
+	                  <CardTitle>Fragen einreichen</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {remainingQuestions > 0 ? (
@@ -2118,11 +2564,11 @@ export default function DiscussionStepPage() {
                 </CardContent>
               </Card>
             )}
-            {!isHost && discussionPointsForConclusions.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Zwischenfazit</CardTitle>
-                </CardHeader>
+	            {!isHost && discussionPointsForConclusions.length > 0 && (
+	              <Card>
+	                <CardHeader>
+	                  <CardTitle>Zwischenfazit</CardTitle>
+	                </CardHeader>
                 <CardContent className="space-y-4 text-sm text-muted">
                   {discussionPointsForConclusions.map((point) => {
                     const pointConclusions = conclusionsByPoint[point.id] ?? [];
@@ -2168,9 +2614,9 @@ export default function DiscussionStepPage() {
                               <p className="text-ink">{ownConclusion.conclusion}</p>
                             </div>
                           )
-                        ) : (
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium text-ink">Dein Fazit</label>
+	                        ) : (
+	                          <div className="space-y-2">
+	                            <label className="text-sm font-medium text-ink">Dein Fazit</label>
                             <textarea
                               rows={3}
                               className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-ring"
@@ -2183,137 +2629,193 @@ export default function DiscussionStepPage() {
                                 }))
                               }
                             />
-                            <Button onClick={() => handleConclusionSubmit(point.id)}>
-                              Fazit speichern
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            )}
-            <Card>
-              <CardHeader>
-                <CardTitle>Offene Diskussionspunkte</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-muted">
-                {sortedOpenDiscussionPoints.length > 0 ? (
-                  sortedOpenDiscussionPoints.map((point) => (
-                    <div
-                      key={point.id}
-                      className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border bg-bg px-3 py-2"
-                    >
-                      <div className="space-y-1">
-                        <p className="text-ink">{point.discussionPoint}</p>
-                        <p className="text-xs text-muted">
-                          {discussionPointLikeCounts[point.id] ?? 0} Zustimmungen
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant={discussionPointLikedByUser[point.id] ? "outline" : "primary"}
-                        onClick={() => handleDiscussionPointLikeToggle(point)}
-                        disabled={!userId}
-                      >
-                        {discussionPointLikedByUser[point.id]
-                          ? "Gefällt mir nicht mehr"
-                          : "Gefällt mir"}
-                      </Button>
-                    </div>
-                  ))
-                ) : (
-                  <p>Noch keine offenen Diskussionspunkte.</p>
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Abgeschlossene Diskussionspunkte</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-muted">
-                {sortedCompletedDiscussionPoints.length > 0 ? (
-                  sortedCompletedDiscussionPoints.map((point) => (
-                    <div
-                      key={point.id}
-                      className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border bg-bg px-3 py-2"
-                    >
-                      <div className="space-y-1">
-                        <p className="text-ink">{point.discussionPoint}</p>
-                        <p className="text-xs text-muted">
-                          {discussionPointLikeCounts[point.id] ?? 0} Zustimmungen
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant={discussionPointLikedByUser[point.id] ? "outline" : "primary"}
-                        onClick={() => handleDiscussionPointLikeToggle(point)}
-                        disabled={!userId}
-                      >
-                        {discussionPointLikedByUser[point.id]
-                          ? "Gefällt mir nicht mehr"
-                          : "Gefällt mir"}
-                      </Button>
-                    </div>
-                  ))
-                ) : (
-                  <p>Noch keine abgeschlossenen Diskussionspunkte.</p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-          <div className="space-y-4">
-            {!isHost && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Meine Fragen</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm text-muted">
-                  {userQuestions.length > 0 ? (
-                    userQuestions.map((item) => (
-                      <div
-                        key={item.id}
-                        className="rounded-xl border border-border bg-bg px-3 py-2"
-                      >
-                        <p className="text-ink">{item.discussionPoint}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <p>Noch keine Fragen erfasst.</p>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-            {isHost && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Fragen der Teilnehmenden</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm text-muted">
-                  {discussionPoints.length > 0 ? (
-                    discussionPoints.map((item) => (
-                      <div
-                        key={item.id}
-                        className="rounded-xl border border-border bg-bg px-3 py-2"
-                      >
-                        <p className="text-ink">{item.discussionPoint}</p>
-                        <p className="text-xs text-muted">
-                          {participantNameByUserId[item.writtenByUserId] ?? "Unbekannt"}
-                        </p>
-                      </div>
-                    ))
-                  ) : (
-                    <p>Noch keine Fragen erfasst.</p>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-            {isHost && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Diskussion steuern</CardTitle>
-                </CardHeader>
+	                            <Button onClick={() => handleConclusionSubmit(point.id)}>
+	                              Fazit speichern
+	                            </Button>
+	                          </div>
+	                        )}
+	                        <div className="space-y-3">
+	                          <p className="text-xs text-muted">Fazit der Teilnehmenden</p>
+	                          {pointConclusions.length > 0 ? (
+	                            pointConclusions.map((conclusion) => {
+	                              const comments = commentsByConclusion[conclusion.id] ?? [];
+	                              return (
+	                                <div
+	                                  key={conclusion.id}
+	                                  className="space-y-3 rounded-lg border border-border bg-surface p-3"
+	                                >
+	                                  <div className="space-y-1">
+	                                    <p className="text-ink">{conclusion.conclusion}</p>
+	                                    <p className="text-xs text-muted">
+	                                      {userDirectory[conclusion.userId]?.name ?? "Unbekannt"}
+	                                    </p>
+	                                  </div>
+	                                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+	                                    <Button
+	                                      size="sm"
+	                                      variant={
+	                                        conclusionLikedByUser[conclusion.id] ? "outline" : "primary"
+	                                      }
+	                                      onClick={() => handleConclusionLikeToggle(conclusion)}
+	                                    >
+	                                      {conclusionLikedByUser[conclusion.id]
+	                                        ? "Gefällt mir nicht mehr"
+	                                        : "Gefällt mir"}
+	                                    </Button>
+	                                    <span>
+	                                      {conclusionLikeCounts[conclusion.id] ?? 0} Zustimmungen
+	                                    </span>
+	                                  </div>
+	                                  <div className="space-y-2">
+	                                    {comments.length > 0 ? (
+	                                      comments.map((comment) => (
+	                                        <div
+	                                          key={comment.id}
+	                                          className="rounded-md border border-border bg-bg px-3 py-2"
+	                                        >
+	                                          <p className="text-sm text-ink">{comment.comment}</p>
+	                                          <p className="text-xs text-muted">
+	                                            {userDirectory[comment.writtenByUserId]?.name ??
+	                                              "Unbekannt"}{" "}
+	                                            {comment.time
+	                                              ? `· ${new Date(comment.time).toLocaleString(
+	                                                  "de-DE"
+	                                                )}`
+	                                              : ""}
+	                                          </p>
+	                                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
+	                                            <Button
+	                                              size="sm"
+	                                              variant={
+	                                                commentLikedByUser[comment.id] ? "outline" : "primary"
+	                                              }
+	                                              onClick={() => handleCommentLikeToggle(comment)}
+	                                            >
+	                                              {commentLikedByUser[comment.id]
+	                                                ? "Gefällt mir nicht mehr"
+	                                                : "Gefällt mir"}
+	                                            </Button>
+	                                            <span>
+	                                              {commentLikeCounts[comment.id] ?? 0} Zustimmungen
+	                                            </span>
+	                                          </div>
+	                                        </div>
+	                                      ))
+	                                    ) : (
+	                                      <p className="text-xs text-muted">Noch keine Kommentare.</p>
+	                                    )}
+	                                    <div className="space-y-2">
+	                                      <label className="text-xs font-medium text-ink">
+	                                        Kommentar
+	                                      </label>
+	                                      <textarea
+	                                        rows={2}
+	                                        className="w-full rounded-xl border border-border bg-bg px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-ring"
+	                                        placeholder="Kommentar verfassen..."
+	                                        value={commentDrafts[conclusion.id] ?? ""}
+	                                        onChange={(event) =>
+	                                          setCommentDrafts((prev) => ({
+	                                            ...prev,
+	                                            [conclusion.id]: event.target.value
+	                                          }))
+	                                        }
+	                                      />
+	                                      <Button
+	                                        size="sm"
+	                                        onClick={() => handleCommentSubmit(conclusion.id)}
+	                                      >
+	                                        Kommentar senden
+	                                      </Button>
+	                                    </div>
+	                                  </div>
+	                                </div>
+	                              );
+	                            })
+	                          ) : (
+	                            <p>Noch keine Fazits erfasst.</p>
+	                          )}
+	                        </div>
+	                      </div>
+	                    );
+	                  })}
+	                </CardContent>
+	              </Card>
+	            )}
+	          </div>
+	          <div className="space-y-4">
+	            <Card>
+	              <CardHeader>
+	                <CardTitle>Offene Diskussionspunkte</CardTitle>
+	              </CardHeader>
+	              <CardContent className="space-y-3 text-sm text-muted">
+	                {sortedOpenDiscussionPoints.length > 0 ? (
+	                  sortedOpenDiscussionPoints.map((point) => (
+	                    <div
+	                      key={point.id}
+	                      className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border bg-bg px-3 py-2"
+	                    >
+	                      <div className="space-y-1">
+	                        <p className="text-ink">{point.discussionPoint}</p>
+	                        <p className="text-xs text-muted">
+	                          {discussionPointLikeCounts[point.id] ?? 0} Zustimmungen
+	                        </p>
+	                      </div>
+	                      <Button
+	                        size="sm"
+	                        variant={discussionPointLikedByUser[point.id] ? "outline" : "primary"}
+	                        onClick={() => handleDiscussionPointLikeToggle(point)}
+	                        disabled={!userId}
+	                      >
+	                        {discussionPointLikedByUser[point.id]
+	                          ? "Gefällt mir nicht mehr"
+	                          : "Gefällt mir"}
+	                      </Button>
+	                    </div>
+	                  ))
+	                ) : (
+	                  <p>Noch keine offenen Diskussionspunkte.</p>
+	                )}
+	              </CardContent>
+	            </Card>
+	            <Card>
+	              <CardHeader>
+	                <CardTitle>Abgeschlossene Diskussionspunkte</CardTitle>
+	              </CardHeader>
+	              <CardContent className="space-y-3 text-sm text-muted">
+	                {sortedCompletedDiscussionPoints.length > 0 ? (
+	                  sortedCompletedDiscussionPoints.map((point) => (
+	                    <div
+	                      key={point.id}
+	                      className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border bg-bg px-3 py-2"
+	                    >
+	                      <div className="space-y-1">
+	                        <p className="text-ink">{point.discussionPoint}</p>
+	                        <p className="text-xs text-muted">
+	                          {discussionPointLikeCounts[point.id] ?? 0} Zustimmungen
+	                        </p>
+	                      </div>
+	                      <Button
+	                        size="sm"
+	                        variant={discussionPointLikedByUser[point.id] ? "outline" : "primary"}
+	                        onClick={() => handleDiscussionPointLikeToggle(point)}
+	                        disabled={!userId}
+	                      >
+	                        {discussionPointLikedByUser[point.id]
+	                          ? "Gefällt mir nicht mehr"
+	                          : "Gefällt mir"}
+	                      </Button>
+	                    </div>
+	                  ))
+	                ) : (
+	                  <p>Noch keine abgeschlossenen Diskussionspunkte.</p>
+	                )}
+	              </CardContent>
+	            </Card>
+	            {isHost && (
+	              <Card>
+	                <CardHeader>
+	                  <CardTitle>Diskussion steuern</CardTitle>
+	                </CardHeader>
                 <CardContent className="space-y-4 text-sm text-muted">
                   {currentDiscussionPointId ? (
                     <div className="space-y-3">
@@ -2332,13 +2834,6 @@ export default function DiscussionStepPage() {
                           disabled={discussionActionLoading}
                         >
                           Frage beenden
-                        </Button>
-                        <Button
-                          onClick={handleFinishDiscussion}
-                          variant="outline"
-                          disabled={discussionActionLoading}
-                        >
-                          Diskussion beenden
                         </Button>
                       </div>
                     </div>
@@ -2369,13 +2864,6 @@ export default function DiscussionStepPage() {
                         )}
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <Button
-                          onClick={handleFinishDiscussion}
-                          variant="outline"
-                          disabled={discussionActionLoading}
-                        >
-                          Diskussion beenden
-                        </Button>
                       </div>
                     </div>
                   )}
@@ -2418,21 +2906,21 @@ export default function DiscussionStepPage() {
             )}
           </div>
         </div>
-      ) : step === 5 ? (
+      ) : step === 6 ? (
         <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Wertekatalog</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted">
-                {selectedCatalogValues.length > 0 ? (
-                  <p className="text-ink">{selectedCatalogValues.join(", ")}</p>
-                ) : (
-                  <p>Noch kein Wertekatalog festgelegt.</p>
-                )}
-              </CardContent>
-            </Card>
+	          <div className="space-y-4">
+	            <Card>
+	              <CardHeader>
+	                <CardTitle>Werterahmen</CardTitle>
+	              </CardHeader>
+	              <CardContent className="text-sm text-muted">
+	                {selectedCatalogValues.length > 0 ? (
+	                  <p className="text-ink">{selectedCatalogValues.join(", ")}</p>
+	                ) : (
+	                  <p>Noch kein Werterahmen festgelegt.</p>
+	                )}
+	              </CardContent>
+	            </Card>
 
             <Card>
               <CardHeader>
@@ -2642,12 +3130,64 @@ export default function DiscussionStepPage() {
             </Card>
           </div>
 
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Offene Fragen</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-muted">
+	          <div className="space-y-4">
+	            {(settings.normsEnabled || sortedGroupNorms.length > 0) && (
+	              <Card>
+	                <CardHeader>
+	                  <CardTitle>Normen der Gruppe</CardTitle>
+	                </CardHeader>
+	                <CardContent className="space-y-3 text-sm text-muted">
+	                  {sortedGroupNorms.length > 0 ? (
+	                    (showAllGroupNorms ? sortedGroupNorms : sortedGroupNorms.slice(0, 3)).map(
+	                      (norm) => (
+	                        <div key={norm.id} className="space-y-1">
+	                          <p className="text-ink">{norm.norm}</p>
+	                          <p className="text-xs text-muted">
+	                            {participantNameByUserId[norm.userId] ?? "Unbekannt"} · Bezug:{" "}
+	                            {valueLabelById[norm.basedOnValueId] ?? "Unbekannt"}
+	                          </p>
+	                        </div>
+	                      )
+	                    )
+	                  ) : (
+	                    <p>Noch keine Normen erfasst.</p>
+	                  )}
+	                  {sortedGroupNorms.length > 3 && (
+	                    <Button
+	                      size="sm"
+	                      variant="outline"
+	                      onClick={() => setShowAllGroupNorms((prev) => !prev)}
+	                    >
+	                      {showAllGroupNorms ? "Weniger anzeigen" : "Mehr anzeigen"}
+	                    </Button>
+	                  )}
+	                </CardContent>
+		              </Card>
+		            )}
+	            {isHost && (
+	              <Card>
+	                <CardHeader>
+	                  <CardTitle>Veröffentlichung</CardTitle>
+	                </CardHeader>
+	                <CardContent className="space-y-3 text-sm text-muted">
+	                  <Button
+	                    onClick={handlePublishDiscussion}
+	                    disabled={discussionActionLoading}
+	                  >
+	                    Diskussion veröffentlichen
+	                  </Button>
+	                  {discussionActionError && (
+	                    <p className="text-xs text-accent2">{discussionActionError}</p>
+	                  )}
+	                  {statusMessage && <p className="text-sm text-muted">{statusMessage}</p>}
+	                </CardContent>
+	              </Card>
+	            )}
+	            <Card>
+	              <CardHeader>
+	                <CardTitle>Offene Fragen</CardTitle>
+	              </CardHeader>
+	              <CardContent className="space-y-3 text-sm text-muted">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span>{openDiscussionPoints.length} offene Fragen</span>
                   <Button

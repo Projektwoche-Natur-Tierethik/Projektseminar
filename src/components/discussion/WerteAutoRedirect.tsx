@@ -21,12 +21,12 @@ export default function WerteAutoRedirect({ code, name }: WerteAutoRedirectProps
         .then((data) => {
           if (!isMounted) return;
           const currentStep = Number(data.currentStep ?? 0);
-          if (currentStep >= 2 && currentStep <= 5) {
+          if (currentStep >= 2 && currentStep <= 6) {
             router.push(
               `/diskussion/schritt/${currentStep}?code=${code}&name=${encodeURIComponent(name)}`
             );
-          } else if (currentStep > 5) {
-            router.push(`/diskussion/schritt/5?code=${code}&name=${encodeURIComponent(name)}`);
+          } else if (currentStep > 6) {
+            router.push(`/diskussion/schritt/6?code=${code}&name=${encodeURIComponent(name)}`);
           }
         })
         .catch(() => {});

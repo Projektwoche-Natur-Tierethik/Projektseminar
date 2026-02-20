@@ -1,30 +1,19 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/Card";
 import { Badge } from "@/src/components/ui/Badge";
+import { prisma } from "@/src/lib/prisma";
 
 export const metadata = {
   title: "Diskussionsforum",
   description: "Austausch für Seminarteilnehmer mit moderierten Themen."
 };
 
-const posts = [
-  {
-    title: "Zoos im Spannungsfeld von Artenschutz und Tierwohl",
-    tag: "Debatte",
-    excerpt: "Welche Mindestanforderungen braucht ein ethisch vertretbarer Zoo?"
-  },
-  {
-    title: "Wildtiermanagement in Städten",
-    tag: "Diskussion",
-    excerpt: "Koexistenz von Mensch und Tier in urbanen Räumen."
-  },
-  {
-    title: "Ethik in der Landwirtschaft",
-    tag: "Positionspapier",
-    excerpt: "Welche Pflichten ergeben sich aus dem Schutz von Lebewesen?"
-  }
-];
+export default async function ForumPage() {
+  const discussions = await prisma.discussion.findMany({
+    where: { step: { gte: 7 } },
+    include: { discussionPoints: true },
+    orderBy: { code: "desc" }
+  });
 
-export default function ForumPage() {
   return (
     <div className="container mx-auto space-y-8 pb-6 pt-12">
       <header className="space-y-2">
@@ -34,19 +23,34 @@ export default function ForumPage() {
         </p>
       </header>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {posts.map((post) => (
-          <Card key={post.title}>
-            <CardHeader className="space-y-2">
-              <Badge>{post.tag}</Badge>
-              <CardTitle>{post.title}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted">{post.excerpt}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {discussions.length > 0 ? (
+        <div className="grid gap-6 md:grid-cols-2">
+          {discussions.map((discussion) => {
+            const completedCount = discussion.discussionPoints.filter(
+              (point) => point.markedAsComplete
+            ).length;
+            return (
+              <Card key={discussion.id}>
+                <CardHeader className="space-y-2">
+                  <Badge>Veröffentlicht</Badge>
+                  <CardTitle>{discussion.discussionTheme}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm text-muted">
+                  <p>Code: {discussion.code}</p>
+                  <p>Diskussionspunkte: {discussion.discussionPoints.length}</p>
+                  <p>Abgeschlossen: {completedCount}</p>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="py-6 text-sm text-muted">
+            Noch keine veröffentlichten Diskussionen.
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

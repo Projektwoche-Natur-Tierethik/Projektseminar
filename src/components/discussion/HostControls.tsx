@@ -57,22 +57,7 @@ export default function HostControls({
     return Number(data.currentStep ?? currentStep + 1);
   }
 
-  async function retreatStep() {
-    const response = await fetch("/api/diskussion/control", {
-      method: "POST",
-      body: JSON.stringify({ code, name, action: "prev" }),
-      headers: { "Content-Type": "application/json" }
-    });
-
-    if (!response.ok) {
-      throw new Error("step_failed");
-    }
-
-    const data = await response.json();
-    return Number(data.currentStep ?? Math.max(currentStep - 1, 0));
-  }
-
-  async function handleAction(action: "start" | "next" | "prev" | "finish") {
+  async function handleAction(action: "start" | "next" | "finish") {
     setLoading(true);
     setError("");
     try {
@@ -91,18 +76,36 @@ export default function HostControls({
 
         const data = await response.json();
         const nextStep = Number(data.currentStep ?? 1);
-        if (nextStep >= 1 && nextStep <= 5) {
+        if (nextStep >= 1 && nextStep <= 6) {
           router.push(
             `/diskussion/schritt/${nextStep}?code=${code}&name=${encodeURIComponent(name)}`
           );
-        } else if (nextStep > 5) {
-          router.push(`/diskussion/schritt/5?code=${code}&name=${encodeURIComponent(name)}`);
+        } else if (nextStep > 6) {
+          router.push(`/diskussion/schritt/6?code=${code}&name=${encodeURIComponent(name)}`);
         }
         return;
       }
 
       if (action === "next") {
         const liveStep = await fetchCurrentStep();
+        if (liveStep === 1) {
+          const valuesResponse = await fetch(
+            `/api/diskussion/werte?code=${encodeURIComponent(code)}&t=${Date.now()}`
+          );
+          if (!valuesResponse.ok) {
+            setError("Werte konnten nicht geprüft werden.");
+            setLoading(false);
+            return;
+          }
+          const valuesData = await valuesResponse.json();
+          const topValues = Array.isArray(valuesData.topValues) ? valuesData.topValues : [];
+          const hasAnySelection = topValues.some((item: any) => Number(item?.count ?? 0) > 0);
+          if (!hasAnySelection) {
+            setError("Der nächste Schritt ist erst möglich, wenn mindestens ein Wert gewählt wurde.");
+            setLoading(false);
+            return;
+          }
+        }
         const enabledSteps = getEnabledSteps(settings);
         const currentIndex = enabledSteps.indexOf(liveStep);
         const nextStep =
@@ -116,23 +119,6 @@ export default function HostControls({
         let step = liveStep;
         while (step < nextStep) {
           step = await advanceStep();
-        }
-        setCurrentStep(step);
-        onStepChange?.(step);
-        setLoading(false);
-        return;
-      }
-
-      if (action === "prev") {
-        const liveStep = await fetchCurrentStep();
-        const enabledSteps = getEnabledSteps(settings);
-        const currentIndex = enabledSteps.indexOf(liveStep);
-        const previousStep =
-          currentIndex > 0 ? enabledSteps[currentIndex - 1] : 0;
-
-        let step = liveStep;
-        while (step > previousStep) {
-          step = await retreatStep();
         }
         setCurrentStep(step);
         onStepChange?.(step);
@@ -163,7 +149,7 @@ export default function HostControls({
     }
   }
 
-  const isFinished = currentStep >= 6;
+  const isFinished = currentStep >= 7;
   const displayStepNumber = getDisplayStepNumber(currentStep, settings);
 
   return (
@@ -172,7 +158,7 @@ export default function HostControls({
         Aktueller Schritt:{" "}
         {currentStep === 0
           ? "Noch nicht gestartet"
-          : currentStep > 5
+          : currentStep > 6
             ? "Auswertung"
             : `Schritt ${displayStepNumber ?? currentStep}`}
       </p>
@@ -182,17 +168,12 @@ export default function HostControls({
             Diskussion starten
           </Button>
         )}
-        {currentStep > 0 && (
-          <Button onClick={() => handleAction("prev")} disabled={loading} variant="outline">
-            Vorherigen Schritt freigeben
-          </Button>
-        )}
-        {currentStep > 0 && currentStep < 5 && (
+        {currentStep > 0 && currentStep < 6 && (
           <Button onClick={() => handleAction("next")} disabled={loading}>
-            Nächsten Schritt freigeben
+            {currentStep === 5 ? "Diskussion beenden" : "Nächsten Schritt freigeben"}
           </Button>
         )}
-        {currentStep === 5 && (
+        {currentStep === 6 && (
           <p className="text-sm text-muted">Fazit ist freigegeben.</p>
         )}
       </div>

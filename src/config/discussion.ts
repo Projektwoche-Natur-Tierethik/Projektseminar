@@ -10,24 +10,30 @@ export const discussionSteps: DiscussionStep[] = [
   },
   {
     step: 2,
+    title: "Werterahmen festlegen",
+    prompt:
+      "Legt gemeinsam fest, welche Werte in den Wertekatalog (Werterahmen) aufgenommen werden."
+  },
+  {
+    step: 3,
     title: "Normen bestimmen",
     prompt:
       "Welche Normen lassen sich aus deinen Werten ableiten?"
   },
   {
-    step: 3,
+    step: 4,
     title: "Inklusionsproblem",
     prompt:
-      "Wer oder was muss geschuetzt werden? Begründe den Rahmen anhand der Normen."
-  },
-  {
-    step: 4,
-    title: "Diskussion",
-    prompt:
-      "Was ist Dir wichtig? Formuliere Fragen, die du gerne diskutieren möchtest."
+      "Wer oder was muss geschützt werden? Begründe den Rahmen anhand der Normen."
   },
   {
     step: 5,
+    title: "Diskussion",
+    prompt:
+      "Was ist dir wichtig? Formuliere Fragen, die du gerne diskutieren möchtest."
+  },
+  {
+    step: 6,
     title: "Fazit",
     prompt:
       "Formuliere dein Fazit zur Diskussion."

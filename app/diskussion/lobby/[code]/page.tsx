@@ -110,7 +110,7 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
       />
 
       <div className="flex flex-wrap gap-3">
-        {currentStep >= 1 && currentStep <= 5 && (
+        {currentStep >= 1 && currentStep <= 6 && (
           <Link
             href={`/diskussion/schritt/${currentStep}?code=${discussion.code}&name=${encodeURIComponent(
               name
@@ -120,9 +120,9 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
             Zum aktuellen Schritt
           </Link>
         )}
-        {currentStep > 5 && (
+        {currentStep > 6 && (
           <Link
-            href={`/diskussion/schritt/5?code=${discussion.code}&name=${encodeURIComponent(
+            href={`/diskussion/schritt/6?code=${discussion.code}&name=${encodeURIComponent(
               name
             )}`}
             className={buttonStyles({ variant: "primary", size: "md" })}
@@ -139,7 +139,7 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
           </CardHeader>
           <CardContent className="space-y-4 text-sm text-muted">
             <p>Hier kannst du die Schritte freigeben.</p>
-            {currentStep > 0 && currentStep <= 5 && (
+            {currentStep > 0 && currentStep <= 6 && (
               <div className="space-y-2">
                 <p className="text-ink">
                   Bereitschaft: {readyCount} / {visibleParticipants.length}

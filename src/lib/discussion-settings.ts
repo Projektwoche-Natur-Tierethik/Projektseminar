@@ -53,8 +53,8 @@ export function normalizeDiscussionSettings(
 }
 
 export function isStepEnabled(step: number, settings: DiscussionSettings) {
-  if (step === 2) return settings.normsEnabled;
-  if (step === 3) return settings.inclusionEnabled;
+  if (step === 3) return settings.normsEnabled;
+  if (step === 4) return settings.inclusionEnabled;
   return true;
 }
 
