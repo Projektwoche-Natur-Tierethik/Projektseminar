@@ -62,7 +62,7 @@ export default function DiscussionStepPage() {
   const step = Number(params.step);
   const canEditConclusion = step === 5 || step === 6;
   const code = searchParams.get("code") ?? "";
-  const name = searchParams.get("name") ?? "";
+  const name = (searchParams.get("name") ?? "").trim();
 
   function hashString(input: string) {
     let hash = 0;

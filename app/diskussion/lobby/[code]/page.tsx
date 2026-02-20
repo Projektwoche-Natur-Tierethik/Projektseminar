@@ -32,7 +32,7 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
     );
   }
 
-  const name = searchParams?.name ?? "";
+  const name = String(searchParams?.name ?? "").trim();
   const codeText = String(discussion.code);
   const shouldAutoRedirect = Boolean(name);
   const settings = normalizeDiscussionSettings({
