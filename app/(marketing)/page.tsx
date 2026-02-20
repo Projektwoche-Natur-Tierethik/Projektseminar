@@ -13,7 +13,7 @@ export const metadata = {
 export default function HomePage() {
   return (
     <div className="relative isolate">
-      <section className="relative mx-auto flex min-h-[70vh] max-w-6xl items-center px-6 pb-16 pt-12 sm:px-10">
+      <section className="relative mx-auto flex min-h-[70vh] max-w-6xl items-center px-6 pb-6 pt-12 sm:px-10">
         <div className="absolute inset-0 -z-10 bg-gradient-to-r from-bg/95 via-bg/70 to-transparent pointer-events-none" />
         <div className="absolute inset-0 z-0 flex items-center justify-center">
           <div className="wolf-stage pointer-events-none">

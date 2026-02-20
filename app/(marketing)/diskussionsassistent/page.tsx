@@ -10,7 +10,7 @@ export const metadata = {
 
 export default function AssistantPage() {
   return (
-    <div className="container mx-auto space-y-12 pb-20 pt-12">
+    <div className="container mx-auto space-y-12 pb-6 pt-12">
       <header className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-3">
           <h1 className="text-3xl font-semibold">Diskussionsassistent</h1>

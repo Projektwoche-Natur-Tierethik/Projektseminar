@@ -5,6 +5,7 @@ import CopyCodeButton from "@/src/components/discussion/CopyCodeButton";
 import CopyJoinLinkButton from "@/src/components/discussion/CopyJoinLinkButton";
 import JoinQrCode from "@/src/components/discussion/JoinQrCode";
 import LobbyAutoRedirect from "@/src/components/discussion/LobbyAutoRedirect";
+import LobbyParticipantsCard from "@/src/components/discussion/LobbyParticipantsCard";
 import { buttonStyles } from "@/src/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/Card";
 import { normalizeDiscussionSettings } from "@/src/lib/discussion-settings";
@@ -51,7 +52,7 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
   }, 0);
 
   return (
-    <div className="container mx-auto space-y-8 pb-20 pt-12">
+    <div className="container mx-auto space-y-8 pb-6 pt-12">
       {shouldAutoRedirect && <LobbyAutoRedirect code={code} name={name} />}
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold">Lobby</h1>
@@ -102,16 +103,11 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Teilnehmende</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted">
-          {discussion.participants.map((participant) => (
-            <div key={participant.id}>{participant.user.name}</div>
-          ))}
-        </CardContent>
-      </Card>
+      <LobbyParticipantsCard
+        discussionId={discussion.id}
+        initialParticipants={discussion.participants}
+        isHost={isHost}
+      />
 
       <div className="flex flex-wrap gap-3">
         {currentStep >= 1 && currentStep <= 5 && (

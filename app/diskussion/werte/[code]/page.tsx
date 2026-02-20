@@ -1,5 +1,6 @@
 import { prisma } from "@/src/lib/prisma";
 import { getValueLabel } from "@/src/lib/value-helpers";
+import WerteAutoRedirect from "@/src/components/discussion/WerteAutoRedirect";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/Card";
 
 type WertePageProps = {
@@ -58,17 +59,22 @@ export default async function WertePage({ params, searchParams }: WertePageProps
   const maxCount = topValues[0]?.count ?? 1;
 
   return (
-    <div className="container mx-auto space-y-8 pb-20 pt-12">
+    <div className="container mx-auto space-y-8 pb-6 pt-12">
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold">Werte-Ranking</h1>
         <p className="text-muted">Diskussionscode: {discussion.code}</p>
       </header>
+      {name && !isHost && <WerteAutoRedirect code={discussion.code} name={name} />}
 
       <Card>
         <CardHeader>
           <CardTitle>Ranking Diagramm</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          <p className="text-xs text-muted">
+            Markierte Balken zeigen deine selbst gewählten Werte. Angezeigt werden alle
+            Werte mit mehr als 0 Stimmen.
+          </p>
           {topValues.length > 0 ? (
             topValues.map((item) => {
               const isSelected = selectedValueLabels.has(item.value);
@@ -84,8 +90,11 @@ export default async function WertePage({ params, searchParams }: WertePageProps
                   </div>
                   <div className="h-2 w-full rounded-none bg-border">
                     <div
-                      className={`h-2 rounded-none ${isSelected ? "bg-primary" : "bg-ink/40"}`}
-                      style={{ width: `${Math.max((item.count / maxCount) * 100, 4)}%` }}
+                      className={`h-2 rounded-none ${isSelected ? "" : "bg-ink/40"}`}
+                      style={{
+                        width: `${Math.max((item.count / maxCount) * 100, 4)}%`,
+                        backgroundColor: isSelected ? "#000080" : undefined
+                      }}
                     />
                   </div>
                 </div>
@@ -96,18 +105,6 @@ export default async function WertePage({ params, searchParams }: WertePageProps
           )}
         </CardContent>
       </Card>
-      {name && (
-        <div className="flex">
-          <a
-            href={`/diskussion/schritt/${Math.min(Math.max(discussion.step, 2), 5)}?code=${discussion.code}&name=${encodeURIComponent(
-              name
-            )}`}
-            className="inline-flex items-center justify-center rounded-none border border-border px-4 py-2 text-sm font-medium text-ink hover:bg-surface"
-          >
-            Weiter zum nächsten Schritt
-          </a>
-        </div>
-      )}
     </div>
   );
 }

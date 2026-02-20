@@ -26,7 +26,7 @@ const posts = [
 
 export default function ForumPage() {
   return (
-    <div className="container mx-auto space-y-8 pb-20 pt-12">
+    <div className="container mx-auto space-y-8 pb-6 pt-12">
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold">Diskussionsforum</h1>
         <p className="text-muted">

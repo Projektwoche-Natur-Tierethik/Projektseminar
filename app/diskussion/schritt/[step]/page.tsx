@@ -51,6 +51,10 @@ export default function DiscussionStepPage() {
     return result;
   }
 
+  function createValuesSignature(values: string[]) {
+    return [...values].sort((left, right) => left.localeCompare(right, "de-DE")).join("||");
+  }
+
   const [settings, setSettings] = useState(defaultDiscussionSettings);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [discussionId, setDiscussionId] = useState<string | null>(null);
@@ -89,7 +93,6 @@ export default function DiscussionStepPage() {
   const [readyCount, setReadyCount] = useState<number | null>(null);
   const [participantCount, setParticipantCount] = useState<number | null>(null);
   const [adminError, setAdminError] = useState("");
-  const [adminSaving, setAdminSaving] = useState<string | null>(null);
   const [adminParticipants, setAdminParticipants] = useState<any[]>([]);
   const [selectedNormValueId, setSelectedNormValueId] = useState("");
   const [normText, setNormText] = useState("");
@@ -124,10 +127,10 @@ export default function DiscussionStepPage() {
   const [fazitError, setFazitError] = useState("");
   const [showOpenQuestions, setShowOpenQuestions] = useState(false);
   const currentPointRef = useRef<string | null>(null);
+  const lastSavedValuesSignatureRef = useRef("");
+  const savingValuesRef = useRef(false);
   const valuesCount = settings.valuesCount;
   const questionsCount = settings.questionsCount;
-  const allParticipantsReady =
-    participantCount !== null && readyCount !== null && readyCount >= participantCount;
   const remainingParticipants =
     participantCount !== null && readyCount !== null
       ? Math.max(participantCount - readyCount, 0)
@@ -160,6 +163,12 @@ export default function DiscussionStepPage() {
       acc[item.value] = item.count;
       return acc;
     }, {} as Record<string, number>);
+  }, [topValues]);
+  const zeroVoteValues = useMemo(() => {
+    const valuesWithVotes = new Set(topValues.map((item) => item.value));
+    return valuesList
+      .filter((label) => !valuesWithVotes.has(label))
+      .sort((left, right) => left.localeCompare(right, "de-DE"));
   }, [topValues]);
   const selectedValueLabels = useMemo(() => {
     const labelsFromIds = userValueIds
@@ -217,13 +226,28 @@ export default function DiscussionStepPage() {
   }, [shuffleSeed]);
 
   useEffect(() => {
-    if (step !== 1 || !code) return;
+    if (!code || (step !== 1 && !(isHost && step === 2))) return;
+    let isMounted = true;
+    const fetchTopValues = () => {
+      fetch(`/api/diskussion/werte?code=${code}&t=${Date.now()}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (!isMounted) return;
+          setTopValues(data.topValues ?? []);
+        })
+        .catch(() => {
+          if (!isMounted) return;
+          setTopValues([]);
+        });
+    };
 
-    fetch(`/api/diskussion/werte?code=${code}`)
-      .then((res) => res.json())
-      .then((data) => setTopValues(data.topValues ?? []))
-      .catch(() => setTopValues([]));
-  }, [step, code]);
+    fetchTopValues();
+    const interval = window.setInterval(fetchTopValues, 5000);
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+    };
+  }, [step, code, isHost]);
 
   useEffect(() => {
     if (!code) return;
@@ -434,9 +458,8 @@ export default function DiscussionStepPage() {
     const valuesFromIds = userValueIds
       .map((valueId) => valueLabelById[valueId])
       .filter(Boolean);
-    if (valuesFromIds.length > 0) {
-      setSelectedValues(valuesFromIds);
-    }
+    setSelectedValues(valuesFromIds);
+    lastSavedValuesSignatureRef.current = createValuesSignature(valuesFromIds);
   }, [step, userValueIds, valueLabelById]);
 
   useEffect(() => {
@@ -903,11 +926,53 @@ export default function DiscussionStepPage() {
   }, [code, name, step]);
 
   useEffect(() => {
-    if (step !== 1 || isHost || currentStep === null) return;
-    if (currentStep > 1) {
+    if (isHost || currentEnabledStep === null || currentEnabledStep <= step) return;
+    if (step === 1 && currentEnabledStep > 1) {
       router.push(`/diskussion/werte/${code}?name=${encodeURIComponent(name)}`);
+      return;
     }
-  }, [step, isHost, currentStep, code, name, router]);
+    if (currentEnabledStep >= 1 && currentEnabledStep <= 5) {
+      router.push(`/diskussion/schritt/${currentEnabledStep}?code=${code}&name=${encodeURIComponent(name)}`);
+      return;
+    }
+    if (currentEnabledStep > 5) {
+      router.push(`/diskussion/schritt/5?code=${code}&name=${encodeURIComponent(name)}`);
+    }
+  }, [isHost, currentEnabledStep, step, code, name, router]);
+
+  useEffect(() => {
+    if (step !== 1 || isHost || isReviewMode || !code || !name) return;
+    const nextSignature = createValuesSignature(selectedValues);
+    if (nextSignature === lastSavedValuesSignatureRef.current) return;
+
+    const timeout = window.setTimeout(() => {
+      if (savingValuesRef.current) return;
+      savingValuesRef.current = true;
+      setLoading(true);
+      fetch("/api/diskussion/werte", {
+        method: "POST",
+        body: JSON.stringify({ code, name, values: selectedValues }),
+        headers: { "Content-Type": "application/json" }
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("save_failed");
+          }
+          lastSavedValuesSignatureRef.current = nextSignature;
+        })
+        .catch(() => {
+          setStatusMessage("Werte konnten nicht gespeichert werden.");
+        })
+        .finally(() => {
+          savingValuesRef.current = false;
+          setLoading(false);
+        });
+    }, 10000);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [step, isHost, isReviewMode, code, name, selectedValues]);
 
   if (!stepData) {
     return (
@@ -942,19 +1007,37 @@ export default function DiscussionStepPage() {
     );
   }
 
-  async function handleValuesSubmit() {
+  async function persistSelectedValues(force = false) {
+    if (step !== 1 || isHost || !code || !name) return true;
+    const nextSignature = createValuesSignature(selectedValues);
+
+    if (!force && nextSignature === lastSavedValuesSignatureRef.current) {
+      return true;
+    }
+    if (savingValuesRef.current) {
+      return false;
+    }
+
+    savingValuesRef.current = true;
     setLoading(true);
-    setStatusMessage("");
-    await fetch("/api/diskussion/werte", {
-      method: "POST",
-      body: JSON.stringify({ code, name, values: selectedValues }),
-      headers: { "Content-Type": "application/json" }
-    });
-    const response = await fetch(`/api/diskussion/werte?code=${code}`);
-    const data = await response.json();
-    setTopValues(data.topValues ?? []);
-    setLoading(false);
-    setStatusMessage("Antwort gespeichert. Warte auf die Freigabe des nächsten Schritts.");
+    try {
+      const response = await fetch("/api/diskussion/werte", {
+        method: "POST",
+        body: JSON.stringify({ code, name, values: selectedValues }),
+        headers: { "Content-Type": "application/json" }
+      });
+      if (!response.ok) {
+        throw new Error("save_failed");
+      }
+      lastSavedValuesSignatureRef.current = nextSignature;
+      return true;
+    } catch {
+      setStatusMessage("Werte konnten nicht gespeichert werden.");
+      return false;
+    } finally {
+      savingValuesRef.current = false;
+      setLoading(false);
+    }
   }
 
   async function handleStepSubmit(value: string) {
@@ -1037,6 +1120,7 @@ export default function DiscussionStepPage() {
       const data = await response.json();
       setUserNorms((prev) => [...prev, data.norm]);
       setNormText("");
+      setSelectedNormValueId("");
       setStatusMessage("Norm gespeichert. Warte auf die Freigabe des nächsten Schritts.");
     } catch {
       setNormError("Norm konnte nicht gespeichert werden.");
@@ -1048,7 +1132,6 @@ export default function DiscussionStepPage() {
   async function handleFrameToggle(label: string, nextValue: boolean) {
     if (!discussionId || !adminUserId) return;
     const valueId = valueIdByLabel[label];
-    setAdminSaving(valueId ?? label);
     setAdminError("");
     try {
       if (!valueId) {
@@ -1079,13 +1162,19 @@ export default function DiscussionStepPage() {
       }
     } catch {
       setAdminError("Wertekatalog konnte nicht gespeichert werden.");
-    } finally {
-      setAdminSaving(null);
     }
   }
 
   async function handleReadyToggle(nextReady: boolean) {
     setStatusMessage("");
+    if (step === 1 && !isHost && nextReady) {
+      const saved = await persistSelectedValues(true);
+      if (!saved) {
+        setStatusMessage("Bitte versuche es erneut. Die Werte konnten nicht gespeichert werden.");
+        return;
+      }
+    }
+
     const response = await fetch("/api/diskussion/ready", {
       method: "POST",
       body: JSON.stringify({ code, name, step, ready: nextReady }),
@@ -1218,6 +1307,17 @@ export default function DiscussionStepPage() {
       setDiscussionActionError("Fazit konnte nicht freigegeben werden.");
     } finally {
       setDiscussionActionLoading(false);
+    }
+  }
+
+  function handleHostStepChange(nextStep: number) {
+    setCurrentStep(nextStep);
+    if (nextStep >= 1 && nextStep <= 5 && nextStep !== step) {
+      router.push(`/diskussion/schritt/${nextStep}?code=${code}&name=${encodeURIComponent(name)}`);
+      return;
+    }
+    if (nextStep > 5) {
+      router.push(`/diskussion/schritt/5?code=${code}&name=${encodeURIComponent(name)}`);
     }
   }
 
@@ -1558,7 +1658,7 @@ export default function DiscussionStepPage() {
   });
 
   return (
-    <div className="container mx-auto space-y-8 pb-20 pt-12">
+    <div className="container mx-auto space-y-8 pb-6 pt-12">
       <Stepper
         steps={stepLabels}
         current={displayStepNumber}
@@ -1580,7 +1680,7 @@ export default function DiscussionStepPage() {
         </h1>
         <p className="text-muted">{stepPrompt}</p>
       </header>
-      {step > 1 && (
+      {step > 1 && !(isHost && step === 2) && (
         <Card>
           <CardHeader>
             <CardTitle>Wertekatalog</CardTitle>
@@ -1602,9 +1702,13 @@ export default function DiscussionStepPage() {
               Der nächste Schritt ist freigeschaltet.
             </p>
           <Link
-            href={`/diskussion/schritt/${currentEnabledStep}?code=${code}&name=${encodeURIComponent(
-              name
-            )}`}
+            href={
+              step === 1 && currentEnabledStep > 1
+                ? `/diskussion/werte/${code}?name=${encodeURIComponent(name)}`
+                : `/diskussion/schritt/${currentEnabledStep}?code=${code}&name=${encodeURIComponent(
+                    name
+                  )}`
+            }
             className={buttonStyles({ variant: "primary", size: "sm" })}
           >
             Zum nächsten Schritt
@@ -1614,61 +1718,39 @@ export default function DiscussionStepPage() {
       )}
 
       {step === 1 ? (
-        <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
+        <div className="grid gap-6">
         {isHost ? (
           <Card>
             <CardHeader>
-              <CardTitle>Wertekatalog festlegen</CardTitle>
+              <CardTitle>Wertekatalog</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-muted">
                 <p>
-                  Wähle frei aus allen genannten Werten. Die Reihenfolge im Ranking
-                  spielt keine Rolle.
+                  Diese Ansicht ist für die Projektion im Kurs. Der Wertekatalog wird im
+                  nächsten Schritt über das Rankingdiagramm festgelegt.
                 </p>
                 {participantCount !== null && readyCount !== null && (
                   <p className="text-xs text-muted">
                     Bereitschaft: {readyCount} / {participantCount}
                   </p>
                 )}
-                {!allParticipantsReady && remainingParticipants !== null && (
+                {remainingParticipants !== null && (
                   <p className="text-xs text-muted">
-                    Warte auf {remainingParticipants} Teilnehmende.
+                    Noch nicht bereit: {remainingParticipants}
                   </p>
                 )}
-                  <div className="space-y-2">
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {catalogValues.map((label) => {
-                      const valueId = valueIdByLabel[label];
-                      const checked = valueId ? Boolean(frameSelections[valueId]) : false;
-                      const disabled =
-                        !allParticipantsReady ||
-                        Boolean(adminSaving && adminSaving !== valueId) ||
-                        !adminUserId;
-                      const count = topValueCounts[label] ?? 0;
                       return (
-                        <label
+                        <div
                           key={label}
-                          className="flex items-center justify-between gap-3 rounded-xl border border-border bg-bg px-3 py-2"
+                          className="flex items-center justify-between gap-2 rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-ink"
                         >
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 accent-primary"
-                              checked={checked}
-                              disabled={disabled}
-                              onChange={() => {
-                                handleFrameToggle(label, !checked);
-                              }}
-                            />
-                            <span className="text-sm text-ink">{label}</span>
-                          </div>
-                          <span className="text-xs text-muted">
-                            {count} Stimmen
-                          </span>
-                        </label>
+                          <span className="truncate">{label}</span>
+                        </div>
                       );
                     })}
                   </div>
-                {adminError && <p className="text-xs text-accent2">{adminError}</p>}
               </CardContent>
             </Card>
         ) : (
@@ -1678,7 +1760,7 @@ export default function DiscussionStepPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted">
-                  Wähle {valuesCount} Werte aus, die dir am wichtigsten sind.
+                  Wähle bis zu {valuesCount} Werte aus, die dir am wichtigsten sind.
                 </p>
                 <ValueSelector
                   values={shuffledValuesList}
@@ -1688,23 +1770,16 @@ export default function DiscussionStepPage() {
                 />
                 <div className="flex flex-wrap gap-2">
                   {!isReviewMode && (
-                    <>
-                      <Button
-                        onClick={handleValuesSubmit}
-                        disabled={selectedValues.length !== valuesCount || loading}
-                      >
-                        Werte speichern
-                      </Button>
-                      <Button
-                        onClick={() => handleReadyToggle(!isReady)}
-                        variant={isReady ? "outline" : "primary"}
-                        disabled={selectedValues.length !== valuesCount}
-                      >
-                        {isReady ? "Nicht bereit" : "Bereit melden"}
-                      </Button>
-                    </>
+                    <Button
+                      onClick={() => handleReadyToggle(!isReady)}
+                      variant={isReady ? "outline" : "primary"}
+                      disabled={loading}
+                    >
+                      {isReady ? "Nicht bereit" : "Bereit melden"}
+                    </Button>
                   )}
                 </div>
+                {loading && <p className="text-xs text-muted">Werte werden gespeichert...</p>}
                 {statusMessage && (
                   <p className="text-sm text-muted">{statusMessage}</p>
                 )}
@@ -1718,62 +1793,7 @@ export default function DiscussionStepPage() {
             </Card>
           )}
 
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>{isHost ? "Wertekatalog" : "Meine Werte"}</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted">
-                {isHost
-                  ? selectedCatalogValues.length > 0
-                    ? selectedCatalogValues.join(", ")
-                    : "Noch kein Wertekatalog ausgewählt."
-                  : selectedValues.length > 0
-                    ? selectedValues.join(", ")
-                    : "Noch keine Werte ausgewählt."}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Ranking (Orientierung)</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm text-muted">
-                <p className="text-xs text-muted">
-                  Dient nur als Orientierung für die spätere Auswahl.
-                </p>
-                {isHost ? (
-                  topValues.length > 0 ? (
-                    topValues.map((item) => {
-                      const isSelected = selectedValueLabels.has(item.value);
-                      return (
-                        <div
-                          key={item.value}
-                          className={`flex items-center justify-between rounded-none px-2 py-1 ${
-                            isSelected ? "bg-primary/10 text-ink" : ""
-                          }`}
-                        >
-                          <span>{item.value}</span>
-                          <span>{item.count}</span>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p>Noch keine Daten.</p>
-                  )
-                ) : (
-                  <p>Wird nach Freigabe der Leitung angezeigt.</p>
-                )}
-                {isHost && (
-                  <Link
-                    href={`/diskussion/werte/${code}?name=${encodeURIComponent(name)}`}
-                    className={buttonStyles({ variant: "outline", size: "sm" })}
-                  >
-                    Zum Ranking-Diagramm
-                  </Link>
-                )}
-              </CardContent>
-            </Card>
-            {isHost && currentStep !== null && (
+          {isHost && currentStep !== null && (
               <Card>
                 <CardHeader>
                   <CardTitle>Leitung</CardTitle>
@@ -1784,17 +1804,8 @@ export default function DiscussionStepPage() {
                     name={name}
                     initialStep={currentStep}
                     settings={settings}
+                    onStepChange={handleHostStepChange}
                   />
-                  {currentEnabledStep !== null && currentEnabledStep > step && (
-                    <Link
-                      href={`/diskussion/schritt/${currentEnabledStep}?code=${code}&name=${encodeURIComponent(
-                        name
-                      )}`}
-                      className={buttonStyles({ variant: "primary", size: "sm" })}
-                    >
-                      Zum nächsten Schritt
-                    </Link>
-                  )}
                   {adminParticipants.length > 0 && (
                     <div className="space-y-2">
                       {adminParticipants.map((item) => (
@@ -1813,10 +1824,86 @@ export default function DiscussionStepPage() {
                 </CardContent>
               </Card>
             )}
-          </div>
         </div>
       ) : step === 2 ? (
-        <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
+        <div className={isHost ? "grid gap-6" : "grid gap-6 lg:grid-cols-[1.3fr_0.7fr]"}>
+          {isHost && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Rankingdiagramm</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-muted">
+                <p className="text-xs text-muted">
+                  Wähle Balken aus, um den Wertekatalog festzulegen.
+                </p>
+                {topValues.length > 0 ? (
+                  topValues.map((item) => {
+                    const valueId = valueIdByLabel[item.value];
+                    const checked = valueId ? Boolean(frameSelections[valueId]) : false;
+                    const maxCount = topValues[0]?.count ?? 1;
+                    const width = Math.max((item.count / maxCount) * 100, 4);
+                    return (
+                      <button
+                        key={item.value}
+                        type="button"
+                        disabled={!valueId || !adminUserId}
+                        onClick={() => {
+                          if (!valueId) return;
+                          handleFrameToggle(item.value, !checked);
+                        }}
+                        className={`w-full space-y-2 rounded-xl border border-border px-3 py-2 text-left ${
+                          checked ? "bg-accent/10" : "bg-bg"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3 text-sm">
+                          <span className={checked ? "text-ink" : "text-muted"}>{item.value}</span>
+                          <span className={checked ? "text-ink" : "text-muted"}>{item.count}</span>
+                        </div>
+                        <div className="h-2 w-full rounded-none bg-border">
+                          <div
+                            className={`h-2 rounded-none ${checked ? "bg-accent" : "bg-ink/40"}`}
+                            style={{ width: `${width}%` }}
+                          />
+                        </div>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <p>Noch keine Daten.</p>
+                )}
+                {zeroVoteValues.length > 0 && (
+                  <div className="space-y-2 pt-2">
+                    <p className="text-xs text-muted">Werte ohne Stimmen</p>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {zeroVoteValues.map((label) => {
+                        const valueId = valueIdByLabel[label];
+                        const checked = valueId ? Boolean(frameSelections[valueId]) : false;
+                        return (
+                          <button
+                            key={label}
+                            type="button"
+                            disabled={!valueId || !adminUserId}
+                            onClick={() => {
+                              if (!valueId) return;
+                              handleFrameToggle(label, !checked);
+                            }}
+                            className={`flex items-center justify-between gap-2 rounded-2xl border border-border px-4 py-3 text-sm ${
+                              checked ? "bg-accent text-white" : "bg-surface text-ink hover:bg-surface/80"
+                            }`}
+                          >
+                            <span className="truncate">{label}</span>
+                            <span className={`text-xs ${checked ? "text-white/90" : "text-muted"}`}>
+                              0
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
           {!isHost && !isReviewMode && (
             <Card>
               <CardHeader>
@@ -1901,6 +1988,7 @@ export default function DiscussionStepPage() {
                 </CardContent>
               </Card>
             )}
+            {!isHost && (
             <Card>
               <CardHeader>
                 <CardTitle>Werterahmen</CardTitle>
@@ -1917,6 +2005,7 @@ export default function DiscussionStepPage() {
                 )}
               </CardContent>
             </Card>
+            )}
 
 
             {isHost && currentStep !== null && (
@@ -1930,6 +2019,7 @@ export default function DiscussionStepPage() {
                     name={name}
                     initialStep={currentStep}
                     settings={settings}
+                    onStepChange={handleHostStepChange}
                   />
                   {adminParticipants.length > 0 && (
                     <div className="space-y-2">
@@ -1950,35 +2040,7 @@ export default function DiscussionStepPage() {
               </Card>
             )}
 
-            {isHost && Object.keys(adminNormsByUser).length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Normen der Teilnehmenden</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 text-sm text-muted">
-                  {Object.entries(adminNormsByUser).map(([userIdKey, norms]) => (
-                    <div key={userIdKey} className="space-y-2">
-                      <p className="font-medium text-ink">
-                        {participantNameByUserId[userIdKey] ?? "Unbekannt"}
-                      </p>
-                      <div className="space-y-2">
-                        {norms.map((norm) => (
-                          <div
-                            key={norm.id}
-                            className="rounded-xl border border-border bg-bg px-3 py-2"
-                          >
-                            <p className="text-ink">{norm.norm}</p>
-                            <p className="text-xs text-muted">
-                              Bezug: {valueLabelById[norm.basedOnValueId] ?? "Unbekannt"}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
+            
           </div>
         </div>
       ) : step === 4 ? (
@@ -2334,6 +2396,7 @@ export default function DiscussionStepPage() {
                     name={name}
                     initialStep={currentStep}
                     settings={settings}
+                    onStepChange={handleHostStepChange}
                   />
                   {adminParticipants.length > 0 && (
                     <div className="space-y-2">

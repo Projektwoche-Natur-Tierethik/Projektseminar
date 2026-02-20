@@ -19,7 +19,7 @@ export default function ValueSelector({
   const selectedSet = useMemo(() => new Set(selected), [selected]);
 
   return (
-    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {values.map((value) => {
         const isSelected = selectedSet.has(value);
         const disabled = !isSelected && selected.length >= max;
@@ -45,7 +45,6 @@ export default function ValueSelector({
             )}
           >
             <span>{value}</span>
-            {isSelected && <span className="text-xs">gewählt</span>}
           </button>
         );
       })}

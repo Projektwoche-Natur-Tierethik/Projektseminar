@@ -1,21 +1,33 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { buttonStyles } from "@/src/components/ui/Button";
 import ThemeToggle from "@/src/components/ui/ThemeToggle";
 import { navItems } from "@/src/components/layout/navItems";
+import { cn } from "@/src/lib/utils";
 
 export default function Header() {
+  const pathname = usePathname();
+
+  const isActive = (href: string) =>
+    pathname === href || pathname.startsWith(`${href}/`);
+
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-surface/80 backdrop-blur">
-      <div className="container mx-auto flex items-center justify-between gap-4 py-4">
+      <div className="container mx-auto flex h-16 items-center justify-between gap-4">
         <Link href="/" className="text-lg font-semibold tracking-tight">
           Ethik-Dialog
         </Link>
-        <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
+        <nav className="hidden h-full items-stretch text-sm font-medium md:flex">
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="text-ink/80 transition hover:text-ink"
+              className={cn(
+                "inline-flex h-full items-center px-3 text-ink/80 transition hover:bg-surface hover:text-ink",
+                isActive(item.href) && "bg-accent text-white hover:text-white"
+              )}
             >
               {item.label}
             </Link>
@@ -36,7 +48,10 @@ export default function Header() {
           <Link
             key={item.href}
             href={item.href}
-            className="whitespace-nowrap rounded-none border border-border px-3 py-1 text-ink/70"
+            className={cn(
+              "whitespace-nowrap rounded-none border border-border px-3 py-1 text-ink/70",
+              isActive(item.href) && "border-accent bg-accent text-white"
+            )}
           >
             {item.label}
           </Link>

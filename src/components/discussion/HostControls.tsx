@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/src/components/ui/Button";
 import {
   type DiscussionSettings,
@@ -13,17 +14,33 @@ type HostControlsProps = {
   name: string;
   initialStep: number;
   settings: DiscussionSettings;
+  onStepChange?: (nextStep: number) => void;
 };
 
 export default function HostControls({
   code,
   name,
   initialStep,
-  settings
+  settings,
+  onStepChange
 }: HostControlsProps) {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setCurrentStep(initialStep);
+  }, [initialStep]);
+
+  async function fetchCurrentStep() {
+    const response = await fetch(
+      `/api/diskussion/status?code=${encodeURIComponent(code)}&name=${encodeURIComponent(name)}`
+    );
+    if (!response.ok) return currentStep;
+    const data = await response.json();
+    return Number(data.currentStep ?? currentStep);
+  }
 
   async function advanceStep() {
     const response = await fetch("/api/diskussion/control", {
@@ -59,9 +76,35 @@ export default function HostControls({
     setLoading(true);
     setError("");
     try {
+      if (action === "start") {
+        const response = await fetch("/api/diskussion/control", {
+          method: "POST",
+          body: JSON.stringify({ code, name, action }),
+          headers: { "Content-Type": "application/json" }
+        });
+
+        if (!response.ok) {
+          setError("Aktion konnte nicht ausgeführt werden.");
+          setLoading(false);
+          return;
+        }
+
+        const data = await response.json();
+        const nextStep = Number(data.currentStep ?? 1);
+        if (nextStep >= 1 && nextStep <= 5) {
+          router.push(
+            `/diskussion/schritt/${nextStep}?code=${code}&name=${encodeURIComponent(name)}`
+          );
+        } else if (nextStep > 5) {
+          router.push(`/diskussion/schritt/5?code=${code}&name=${encodeURIComponent(name)}`);
+        }
+        return;
+      }
+
       if (action === "next") {
+        const liveStep = await fetchCurrentStep();
         const enabledSteps = getEnabledSteps(settings);
-        const currentIndex = enabledSteps.indexOf(currentStep);
+        const currentIndex = enabledSteps.indexOf(liveStep);
         const nextStep =
           currentIndex >= 0 ? enabledSteps[currentIndex + 1] : enabledSteps[0];
 
@@ -70,26 +113,29 @@ export default function HostControls({
           return;
         }
 
-        let step = currentStep;
+        let step = liveStep;
         while (step < nextStep) {
           step = await advanceStep();
         }
         setCurrentStep(step);
+        onStepChange?.(step);
         setLoading(false);
         return;
       }
 
       if (action === "prev") {
+        const liveStep = await fetchCurrentStep();
         const enabledSteps = getEnabledSteps(settings);
-        const currentIndex = enabledSteps.indexOf(currentStep);
+        const currentIndex = enabledSteps.indexOf(liveStep);
         const previousStep =
           currentIndex > 0 ? enabledSteps[currentIndex - 1] : 0;
 
-        let step = currentStep;
+        let step = liveStep;
         while (step > previousStep) {
           step = await retreatStep();
         }
         setCurrentStep(step);
+        onStepChange?.(step);
         setLoading(false);
         return;
       }
@@ -107,7 +153,9 @@ export default function HostControls({
       }
 
       const data = await response.json();
-      setCurrentStep(data.currentStep ?? currentStep);
+      const nextStep = Number(data.currentStep ?? currentStep);
+      setCurrentStep(nextStep);
+      onStepChange?.(nextStep);
       setLoading(false);
     } catch {
       setError("Aktion konnte nicht ausgeführt werden.");

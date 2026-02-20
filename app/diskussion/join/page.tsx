@@ -12,6 +12,7 @@ function JoinDiscussionContent() {
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const codeParam = (searchParams.get("code") ?? "").trim().toUpperCase();
@@ -25,24 +26,32 @@ function JoinDiscussionContent() {
   }, [searchParams, code, name]);
 
   async function handleJoin() {
+    if (submitting) return;
+    setSubmitting(true);
     setError("");
-    const response = await fetch("/api/diskussion/join", {
-      method: "POST",
-      body: JSON.stringify({ code, name }),
-      headers: { "Content-Type": "application/json" }
-    });
+    try {
+      const response = await fetch("/api/diskussion/join", {
+        method: "POST",
+        body: JSON.stringify({ code, name }),
+        headers: { "Content-Type": "application/json" }
+      });
 
-    if (!response.ok) {
+      if (!response.ok) {
+        setError("Code oder Name ungueltig.");
+        setSubmitting(false);
+        return;
+      }
+      router.push(
+        `/diskussion/lobby/${code}?name=${encodeURIComponent(name)}`
+      );
+    } catch {
       setError("Code oder Name ungueltig.");
-      return;
+      setSubmitting(false);
     }
-    router.push(
-      `/diskussion/lobby/${code}?name=${encodeURIComponent(name)}`
-    );
   }
 
   return (
-    <div className="container mx-auto space-y-8 pb-20 pt-12">
+    <div className="container mx-auto space-y-8 pb-6 pt-12">
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold">Diskussion beitreten</h1>
         <p className="text-muted">Code eingeben und mitmachen.</p>
@@ -63,8 +72,12 @@ function JoinDiscussionContent() {
             value={name}
             onChange={(event) => setName(event.target.value)}
           />
-          <Button onClick={handleJoin} disabled={!code.trim() || !name.trim()}>
-            Lobby betreten
+          <Button
+            onClick={handleJoin}
+            variant={submitting ? "outline" : "primary"}
+            disabled={!code.trim() || !name.trim() || submitting}
+          >
+            {submitting ? "Wird beigetreten..." : "Lobby beitreten"}
           </Button>
           {error && <p className="text-sm text-accent2">{error}</p>}
         </CardContent>
@@ -77,7 +90,7 @@ export default function JoinDiscussionPage() {
   return (
     <Suspense
       fallback={
-        <div className="container mx-auto space-y-4 pb-20 pt-12">
+        <div className="container mx-auto space-y-4 pb-6 pt-12">
           <h1 className="text-3xl font-semibold">Diskussion beitreten</h1>
           <p className="text-muted">Seite wird geladen…</p>
         </div>
