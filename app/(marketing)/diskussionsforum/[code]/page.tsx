@@ -19,6 +19,7 @@ export default async function ForumDetailPage({ params }: ForumDetailPageProps) 
       norms: { include: { user: true } },
       discussionPoints: {
         include: {
+          likes: true,
           conclusions: { include: { user: true } }
         }
       }
@@ -36,6 +37,7 @@ export default async function ForumDetailPage({ params }: ForumDetailPageProps) 
   const gruppenNormen = discussion.norms;
   const hauptfazits = discussion.participants.filter((item) => !item.admin && item.mainConclusion);
   const abgeschlossenePunkte = discussion.discussionPoints.filter((item) => item.markedAsComplete);
+  const offenePunkte = discussion.discussionPoints.filter((item) => !item.markedAsComplete);
 
   return (
     <div className="container mx-auto space-y-8 pb-6 pt-12">
@@ -63,6 +65,35 @@ export default async function ForumDetailPage({ params }: ForumDetailPageProps) 
                 ))
               ) : (
                 <p>Noch keine Fazits der Teilnehmenden vorhanden.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Zeitstrahl der Diskussion</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted">
+              {abgeschlossenePunkte.length > 0 ? (
+                <div className="relative overflow-x-auto pb-2">
+                  <div className="absolute left-0 right-0 top-5 h-px bg-border" />
+                  <div className="relative flex min-w-full gap-6 pb-2">
+                    {abgeschlossenePunkte.map((punkt, index) => (
+                      <div key={punkt.id} className="min-w-[220px] space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="h-3 w-3 rounded-full bg-primary" />
+                          <span className="text-xs text-muted">Punkt {index + 1}</span>
+                        </div>
+                        <p className="text-ink">{punkt.discussionPoint}</p>
+                        <p className="text-xs text-muted">
+                          {punkt.likes.length} Zustimmungen
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p>Noch keine abgeschlossenen Diskussionspunkte.</p>
               )}
             </CardContent>
           </Card>
@@ -140,6 +171,27 @@ export default async function ForumDetailPage({ params }: ForumDetailPageProps) 
                 ))
               ) : (
                 <p>Keine Normen vorhanden.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Offene Diskussionspunkte</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-muted">
+              {offenePunkte.length > 0 ? (
+                offenePunkte.map((punkt) => (
+                  <div
+                    key={punkt.id}
+                    className="rounded-xl border border-border bg-bg px-3 py-2"
+                  >
+                    <p className="text-ink">{punkt.discussionPoint}</p>
+                    <p className="text-xs text-muted">{punkt.likes.length} Zustimmungen</p>
+                  </div>
+                ))
+              ) : (
+                <p>Keine offenen Diskussionspunkte vorhanden.</p>
               )}
             </CardContent>
           </Card>
