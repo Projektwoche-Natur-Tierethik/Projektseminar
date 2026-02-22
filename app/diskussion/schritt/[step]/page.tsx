@@ -164,7 +164,6 @@ export default function DiscussionStepPage() {
     Record<string, boolean>
   >({});
   const [fazitError, setFazitError] = useState("");
-  const [showOpenQuestions, setShowOpenQuestions] = useState(false);
   const [showAllGroupNorms, setShowAllGroupNorms] = useState(false);
   const currentPointRef = useRef<string | null>(null);
   const lastSavedValuesSignatureRef = useRef("");
@@ -2009,14 +2008,14 @@ export default function DiscussionStepPage() {
                     </div>
                   </div>
                 )}
-                {!isHost && !isReviewMode && (
+                {!isHost && !isReviewMode && !isReady && (
                   <div className="flex flex-wrap gap-2 pt-2">
                     <Button
-                      onClick={() => handleReadyToggle(!isReady)}
-                      variant={isReady ? "outline" : "primary"}
+                      onClick={() => handleReadyToggle(true)}
+                      variant="primary"
                       disabled={loading}
                     >
-                      {isReady ? "Nicht bereit" : "Bereit melden"}
+                      Bereit melden
                     </Button>
                   </div>
                 )}
@@ -2264,7 +2263,7 @@ export default function DiscussionStepPage() {
 	                </CardContent>
 	              </Card>
 	            )}
-		            <Card>
+	            <Card>
 		              <CardHeader>
 		                <CardTitle>Begründungen der Gruppe</CardTitle>
 		              </CardHeader>
@@ -2289,6 +2288,44 @@ export default function DiscussionStepPage() {
 	                )}
 	              </CardContent>
 	            </Card>
+	            <Card>
+	              <CardHeader>
+	                <CardTitle>Begriffsklärung: Inklusionsproblem</CardTitle>
+	              </CardHeader>
+	              <CardContent>
+	                <details className="text-sm text-muted">
+	                  <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.2em] text-ink">
+	                    Anzeigen
+	                  </summary>
+	                  <div className="mt-3 space-y-4">
+	                    <div className="space-y-2">
+	                      <p className="text-xs uppercase tracking-[0.2em] text-muted">
+	                        Leitfrage
+	                      </p>
+	                      <p className="text-ink">{begriffsklaerungInklusionsproblem.leitfrage}</p>
+	                      <p>{begriffsklaerungInklusionsproblem.einordnung}</p>
+	                    </div>
+	                    <div className="space-y-2">
+	                      <p className="text-xs uppercase tracking-[0.2em] text-muted">
+	                        Mögliche Antworten
+	                      </p>
+	                      <div className="space-y-2">
+	                        {begriffsklaerungInklusionsproblem.antworten.map((antwort) => (
+	                          <div
+	                            key={antwort.id}
+	                            className="rounded-2xl border border-border bg-bg px-4 py-3"
+	                          >
+	                            <p className="text-sm font-semibold text-ink">{antwort.title}</p>
+	                            <p className="mt-2 text-sm text-muted">{antwort.summary}</p>
+	                            <p className="mt-2 text-sm text-ink">{antwort.focus}</p>
+	                          </div>
+	                        ))}
+	                      </div>
+	                    </div>
+	                  </div>
+	                </details>
+	              </CardContent>
+	            </Card>
 		          </div>
 			          <div className="space-y-4">
 			            <Card>
@@ -2307,44 +2344,6 @@ export default function DiscussionStepPage() {
 			                )}
 			              </CardContent>
 			            </Card>
-			            <Card>
-			              <CardHeader>
-			                <CardTitle>Begriffsklärung: Inklusionsproblem</CardTitle>
-			              </CardHeader>
-		              <CardContent>
-		                <details className="text-sm text-muted">
-		                  <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.2em] text-ink">
-		                    Anzeigen
-		                  </summary>
-		                  <div className="mt-3 space-y-4">
-		                    <div className="space-y-2">
-		                      <p className="text-xs uppercase tracking-[0.2em] text-muted">
-		                        Leitfrage
-		                      </p>
-		                      <p className="text-ink">{begriffsklaerungInklusionsproblem.leitfrage}</p>
-		                      <p>{begriffsklaerungInklusionsproblem.einordnung}</p>
-		                    </div>
-		                    <div className="space-y-2">
-		                      <p className="text-xs uppercase tracking-[0.2em] text-muted">
-		                        Mögliche Antworten
-		                      </p>
-		                      <div className="space-y-2">
-		                        {begriffsklaerungInklusionsproblem.antworten.map((antwort) => (
-		                          <div
-		                            key={antwort.id}
-		                            className="rounded-2xl border border-border bg-bg px-4 py-3"
-		                          >
-		                            <p className="text-sm font-semibold text-ink">{antwort.title}</p>
-		                            <p className="mt-2 text-sm text-muted">{antwort.summary}</p>
-		                            <p className="mt-2 text-sm text-ink">{antwort.focus}</p>
-		                          </div>
-		                        ))}
-		                      </div>
-		                    </div>
-		                  </div>
-		                </details>
-		              </CardContent>
-		            </Card>
 		            {(settings.normsEnabled || sortedGroupNorms.length > 0) && (
 		              <Card>
 		                <CardHeader>
@@ -2412,158 +2411,122 @@ export default function DiscussionStepPage() {
 	          </div>
 	        </div>
 	      ) : step === 5 ? (
-	        <div className="grid gap-6 lg:grid-cols-2">
+	        <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
 	          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Aktueller Diskussionspunkt</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {currentDiscussionPointId ? (
+                  <>
+                    <p className="text-ink">
+                      {activeDiscussionPoint?.discussionPoint ?? "Diskussionspunkt wird geladen..."}
+                    </p>
+                    {!isHost && (
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          onClick={() => handleSkipToggle(!hasSkipped)}
+                          variant={hasSkipped ? "outline" : "primary"}
+                          disabled={discussionActionLoading}
+                        >
+                          {hasSkipped ? "Weiter diskutieren" : "Frage überspringen"}
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted">
+                    Entscheidet euch für einen nächsten Diskussionspunkt, mit dem ihr fortfahren wollt.
+                  </p>
+                )}
+                {discussionActionError && (
+                  <p className="text-xs text-accent2">{discussionActionError}</p>
+                )}
+              </CardContent>
+            </Card>
 	            <Card>
 	              <CardHeader>
-	                <CardTitle>Werterahmen</CardTitle>
+	                <CardTitle>Offene Diskussionspunkte</CardTitle>
 	              </CardHeader>
-	              <CardContent className="text-sm text-muted">
-	                {selectedCatalogValues.length > 0 ? (
-	                  <p className="text-ink">{selectedCatalogValues.join(", ")}</p>
+	              <CardContent className="space-y-3 text-sm text-muted">
+	                {sortedOpenDiscussionPoints.length > 0 ? (
+	                  sortedOpenDiscussionPoints.map((point) => (
+	                    <div
+	                      key={point.id}
+	                      className={`flex flex-wrap items-start justify-between gap-3 rounded-xl border px-3 py-2 ${
+	                        point.writtenByUserId === userId
+	                          ? "border-primary/50 bg-primary/5"
+	                          : "border-border bg-bg"
+	                      }`}
+	                    >
+	                      <div className="space-y-1">
+	                        <p className="text-ink">{point.discussionPoint}</p>
+	                        {point.writtenByUserId === userId && (
+	                          <p className="text-xs font-medium text-ink">Von dir eingebracht</p>
+	                        )}
+	                        <p className="text-xs text-muted">
+	                          {discussionPointLikeCounts[point.id] ?? 0} Zustimmungen
+	                        </p>
+	                      </div>
+	                      <Button
+	                        size="sm"
+	                        variant={discussionPointLikedByUser[point.id] ? "outline" : "primary"}
+	                        onClick={() => handleDiscussionPointLikeToggle(point)}
+	                        disabled={!userId}
+	                      >
+	                        {discussionPointLikedByUser[point.id]
+	                          ? "Gefällt mir nicht mehr"
+	                          : "Gefällt mir"}
+	                      </Button>
+	                    </div>
+	                  ))
 	                ) : (
-	                  <p>Noch kein Werterahmen festgelegt.</p>
+	                  <p>Noch keine offenen Diskussionspunkte.</p>
 	                )}
 	              </CardContent>
 	            </Card>
-	            {(settings.normsEnabled || sortedGroupNorms.length > 0) && (
-	              <Card>
-	                <CardHeader>
-	                  <CardTitle>Normen der Gruppe</CardTitle>
-	                </CardHeader>
-	                <CardContent className="space-y-3 text-sm text-muted">
-	                  {sortedGroupNorms.length > 0 ? (
-	                    (showAllGroupNorms ? sortedGroupNorms : sortedGroupNorms.slice(0, 3)).map(
-	                      (norm) => (
-	                        <div key={norm.id} className="space-y-1">
-	                          <p className="text-ink">{norm.norm}</p>
-	                          <p className="text-xs text-muted">
-	                            {participantNameByUserId[norm.userId] ?? "Unbekannt"} · Bezug:{" "}
-	                            {valueLabelById[norm.basedOnValueId] ?? "Unbekannt"}
-	                          </p>
-	                        </div>
-	                      )
-	                    )
-	                  ) : (
-	                    <p>Noch keine Normen erfasst.</p>
-	                  )}
-	                  {sortedGroupNorms.length > 3 && (
-	                    <Button
-	                      size="sm"
-	                      variant="outline"
-	                      onClick={() => setShowAllGroupNorms((prev) => !prev)}
+	            <Card>
+	              <CardHeader>
+	                <CardTitle>Abgeschlossene Diskussionspunkte</CardTitle>
+	              </CardHeader>
+	              <CardContent className="space-y-3 text-sm text-muted">
+	                {sortedCompletedDiscussionPoints.length > 0 ? (
+	                  sortedCompletedDiscussionPoints.map((point) => (
+	                    <div
+	                      key={point.id}
+	                      className={`flex flex-wrap items-start justify-between gap-3 rounded-xl border px-3 py-2 ${
+	                        point.writtenByUserId === userId
+	                          ? "border-primary/50 bg-primary/5"
+	                          : "border-border bg-bg"
+	                      }`}
 	                    >
-	                      {showAllGroupNorms ? "Weniger anzeigen" : "Mehr anzeigen"}
-	                    </Button>
-	                  )}
-	                </CardContent>
-	              </Card>
-	            )}
-	            {!isHost && (
-	              <Card>
-	                <CardHeader>
-	                  <CardTitle>Meine Fragen</CardTitle>
-	                </CardHeader>
-	                <CardContent className="space-y-2 text-sm text-muted">
-	                  {userQuestions.length > 0 ? (
-	                    userQuestions.map((item) => (
-	                      <div
-	                        key={item.id}
-	                        className="rounded-xl border border-border bg-bg px-3 py-2"
-	                      >
-	                        <p className="text-ink">{item.discussionPoint}</p>
-	                      </div>
-	                    ))
-	                  ) : (
-	                    <p>Noch keine Fragen erfasst.</p>
-	                  )}
-	                </CardContent>
-	              </Card>
-	            )}
-	            {isHost && (
-	              <Card>
-	                <CardHeader>
-	                  <CardTitle>Fragen der Teilnehmenden</CardTitle>
-	                </CardHeader>
-	                <CardContent className="space-y-3 text-sm text-muted">
-	                  {discussionPoints.length > 0 ? (
-	                    discussionPoints.map((item) => (
-	                      <div
-	                        key={item.id}
-	                        className="rounded-xl border border-border bg-bg px-3 py-2"
-	                      >
-	                        <p className="text-ink">{item.discussionPoint}</p>
+	                      <div className="space-y-1">
+	                        <p className="text-ink">{point.discussionPoint}</p>
+	                        {point.writtenByUserId === userId && (
+	                          <p className="text-xs font-medium text-ink">Von dir eingebracht</p>
+	                        )}
 	                        <p className="text-xs text-muted">
-	                          {participantNameByUserId[item.writtenByUserId] ?? "Unbekannt"}
+	                          {discussionPointLikeCounts[point.id] ?? 0} Zustimmungen
 	                        </p>
 	                      </div>
-	                    ))
-	                  ) : (
-	                    <p>Noch keine Fragen erfasst.</p>
-	                  )}
-	                </CardContent>
-	              </Card>
-	            )}
-	            {!isHost && !isReviewMode && (
-	              <Card>
-	                <CardHeader>
-	                  <CardTitle>Fragen einreichen</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {remainingQuestions > 0 ? (
-                    <QuestionsForm
-                      maxQuestions={remainingQuestions}
-                      onSubmit={handleQuestionsSubmit}
-                    />
-                  ) : (
-                    <p className="text-sm text-muted">
-                      Du hast bereits alle {questionsCount} Fragen eingereicht.
-                    </p>
-                  )}
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Button
-                      onClick={() => handleReadyToggle(!isReady)}
-                      variant={isReady ? "outline" : "primary"}
-                    >
-                      {isReady ? "Nicht bereit" : "Bereit melden"}
-                    </Button>
-                  </div>
-                  {statusMessage && (
-                    <p className="mt-4 text-sm text-muted">{statusMessage}</p>
-                  )}
-                  {readyUpdatedAt && (
-                    <p className="mt-2 text-xs text-muted">
-                      Status zuletzt geändert:{" "}
-                      {new Date(readyUpdatedAt).toLocaleString("de-DE")}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-            {!isHost && currentDiscussionPointId && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Aktuelle Frage</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-ink">
-                    {activeDiscussionPoint?.discussionPoint ?? "Frage wird geladen..."}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      onClick={() => handleSkipToggle(!hasSkipped)}
-                      variant={hasSkipped ? "outline" : "primary"}
-                      disabled={discussionActionLoading}
-                    >
-                      {hasSkipped ? "Weiter diskutieren" : "Frage überspringen"}
-                    </Button>
-                  </div>
-                  {discussionActionError && (
-                    <p className="text-xs text-accent2">{discussionActionError}</p>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+	                      <Button
+	                        size="sm"
+	                        variant={discussionPointLikedByUser[point.id] ? "outline" : "primary"}
+	                        onClick={() => handleDiscussionPointLikeToggle(point)}
+	                        disabled={!userId}
+	                      >
+	                        {discussionPointLikedByUser[point.id]
+	                          ? "Gefällt mir nicht mehr"
+	                          : "Gefällt mir"}
+	                      </Button>
+	                    </div>
+	                  ))
+	                ) : (
+	                  <p>Noch keine abgeschlossenen Diskussionspunkte.</p>
+	                )}
+	              </CardContent>
+	            </Card>
 	            {!isHost && discussionPointsForConclusions.length > 0 && (
 	              <Card>
 	                <CardHeader>
@@ -2743,74 +2706,87 @@ export default function DiscussionStepPage() {
 	            )}
 	          </div>
 	          <div className="space-y-4">
+	            {!isHost && !isReviewMode && (
+	              <Card>
+	                <CardHeader>
+	                  <CardTitle>Diskussionspunkt oder Frage stellen</CardTitle>
+	                </CardHeader>
+	                <CardContent>
+	                  {remainingQuestions > 0 ? (
+	                    <QuestionsForm
+	                      maxQuestions={remainingQuestions}
+	                      onSubmit={handleQuestionsSubmit}
+	                    />
+	                  ) : (
+	                    <p className="text-sm text-muted">
+	                      Du hast bereits alle {questionsCount} Fragen eingereicht.
+	                    </p>
+	                  )}
+	                  <div className="mt-4 flex flex-wrap gap-2">
+	                    <Button
+	                      onClick={() => handleReadyToggle(!isReady)}
+	                      variant={isReady ? "outline" : "primary"}
+	                    >
+	                      {isReady ? "Nicht bereit" : "Bereit melden"}
+	                    </Button>
+	                  </div>
+	                  {statusMessage && (
+	                    <p className="mt-4 text-sm text-muted">{statusMessage}</p>
+	                  )}
+	                  {readyUpdatedAt && (
+	                    <p className="mt-2 text-xs text-muted">
+	                      Status zuletzt geändert:{" "}
+	                      {new Date(readyUpdatedAt).toLocaleString("de-DE")}
+	                    </p>
+	                  )}
+	                </CardContent>
+	              </Card>
+	            )}
 	            <Card>
 	              <CardHeader>
-	                <CardTitle>Offene Diskussionspunkte</CardTitle>
+	                <CardTitle>Werterahmen</CardTitle>
 	              </CardHeader>
-	              <CardContent className="space-y-3 text-sm text-muted">
-	                {sortedOpenDiscussionPoints.length > 0 ? (
-	                  sortedOpenDiscussionPoints.map((point) => (
-	                    <div
-	                      key={point.id}
-	                      className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border bg-bg px-3 py-2"
-	                    >
-	                      <div className="space-y-1">
-	                        <p className="text-ink">{point.discussionPoint}</p>
-	                        <p className="text-xs text-muted">
-	                          {discussionPointLikeCounts[point.id] ?? 0} Zustimmungen
-	                        </p>
-	                      </div>
-	                      <Button
-	                        size="sm"
-	                        variant={discussionPointLikedByUser[point.id] ? "outline" : "primary"}
-	                        onClick={() => handleDiscussionPointLikeToggle(point)}
-	                        disabled={!userId}
-	                      >
-	                        {discussionPointLikedByUser[point.id]
-	                          ? "Gefällt mir nicht mehr"
-	                          : "Gefällt mir"}
-	                      </Button>
-	                    </div>
-	                  ))
+	              <CardContent className="text-sm text-muted">
+	                {selectedCatalogValues.length > 0 ? (
+	                  <p className="text-ink">{selectedCatalogValues.join(", ")}</p>
 	                ) : (
-	                  <p>Noch keine offenen Diskussionspunkte.</p>
+	                  <p>Noch kein Werterahmen festgelegt.</p>
 	                )}
 	              </CardContent>
 	            </Card>
-	            <Card>
-	              <CardHeader>
-	                <CardTitle>Abgeschlossene Diskussionspunkte</CardTitle>
-	              </CardHeader>
-	              <CardContent className="space-y-3 text-sm text-muted">
-	                {sortedCompletedDiscussionPoints.length > 0 ? (
-	                  sortedCompletedDiscussionPoints.map((point) => (
-	                    <div
-	                      key={point.id}
-	                      className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border bg-bg px-3 py-2"
+	            {(settings.normsEnabled || sortedGroupNorms.length > 0) && (
+	              <Card>
+	                <CardHeader>
+	                  <CardTitle>Normen der Gruppe</CardTitle>
+	                </CardHeader>
+	                <CardContent className="space-y-3 text-sm text-muted">
+	                  {sortedGroupNorms.length > 0 ? (
+	                    (showAllGroupNorms ? sortedGroupNorms : sortedGroupNorms.slice(0, 3)).map(
+	                      (norm) => (
+	                        <div key={norm.id} className="space-y-1">
+	                          <p className="text-ink">{norm.norm}</p>
+	                          <p className="text-xs text-muted">
+	                            {participantNameByUserId[norm.userId] ?? "Unbekannt"} · Bezug:{" "}
+	                            {valueLabelById[norm.basedOnValueId] ?? "Unbekannt"}
+	                          </p>
+	                        </div>
+	                      )
+	                    )
+	                  ) : (
+	                    <p>Noch keine Normen erfasst.</p>
+	                  )}
+	                  {sortedGroupNorms.length > 3 && (
+	                    <Button
+	                      size="sm"
+	                      variant="outline"
+	                      onClick={() => setShowAllGroupNorms((prev) => !prev)}
 	                    >
-	                      <div className="space-y-1">
-	                        <p className="text-ink">{point.discussionPoint}</p>
-	                        <p className="text-xs text-muted">
-	                          {discussionPointLikeCounts[point.id] ?? 0} Zustimmungen
-	                        </p>
-	                      </div>
-	                      <Button
-	                        size="sm"
-	                        variant={discussionPointLikedByUser[point.id] ? "outline" : "primary"}
-	                        onClick={() => handleDiscussionPointLikeToggle(point)}
-	                        disabled={!userId}
-	                      >
-	                        {discussionPointLikedByUser[point.id]
-	                          ? "Gefällt mir nicht mehr"
-	                          : "Gefällt mir"}
-	                      </Button>
-	                    </div>
-	                  ))
-	                ) : (
-	                  <p>Noch keine abgeschlossenen Diskussionspunkte.</p>
-	                )}
-	              </CardContent>
-	            </Card>
+	                      {showAllGroupNorms ? "Weniger anzeigen" : "Mehr anzeigen"}
+	                    </Button>
+	                  )}
+	                </CardContent>
+	              </Card>
+	            )}
 	            {isHost && (
 	              <Card>
 	                <CardHeader>
@@ -2820,9 +2796,9 @@ export default function DiscussionStepPage() {
                   {currentDiscussionPointId ? (
                     <div className="space-y-3">
                       <div>
-                        <p className="text-xs text-muted">Aktuelle Frage</p>
+                        <p className="text-xs text-muted">Aktueller Diskussionspunkt</p>
                         <p className="text-ink">
-                          {activeDiscussionPoint?.discussionPoint ?? "Frage wird geladen..."}
+                          {activeDiscussionPoint?.discussionPoint ?? "Diskussionspunkt wird geladen..."}
                         </p>
                       </div>
                       <p className="text-xs text-muted">
@@ -2833,14 +2809,14 @@ export default function DiscussionStepPage() {
                           onClick={handleCompleteDiscussionPoint}
                           disabled={discussionActionLoading}
                         >
-                          Frage beenden
+                          Diskussionspunkt beenden
                         </Button>
                       </div>
                     </div>
                   ) : (
                     <div className="space-y-3">
                       <p className="text-sm text-muted">
-                        Wähle eine Frage aus dem Pool aus, um die Diskussion zu starten.
+                        Wähle einen Diskussionspunkt aus dem Pool aus, um die Diskussion zu starten.
                       </p>
                       <div className="space-y-2">
                         {openDiscussionPoints.length > 0 ? (
@@ -2855,12 +2831,12 @@ export default function DiscussionStepPage() {
                                 onClick={() => handleStartDiscussionPoint(item.id)}
                                 disabled={discussionActionLoading}
                               >
-                                Frage starten
+                                Diskussionspunkt starten
                               </Button>
                             </div>
                           ))
                         ) : (
-                          <p>Noch keine offenen Fragen verfügbar.</p>
+                          <p>Noch keine offenen Diskussionspunkte verfügbar.</p>
                         )}
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -2909,19 +2885,6 @@ export default function DiscussionStepPage() {
       ) : step === 6 ? (
         <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
 	          <div className="space-y-4">
-	            <Card>
-	              <CardHeader>
-	                <CardTitle>Werterahmen</CardTitle>
-	              </CardHeader>
-	              <CardContent className="text-sm text-muted">
-	                {selectedCatalogValues.length > 0 ? (
-	                  <p className="text-ink">{selectedCatalogValues.join(", ")}</p>
-	                ) : (
-	                  <p>Noch kein Werterahmen festgelegt.</p>
-	                )}
-	              </CardContent>
-	            </Card>
-
             <Card>
               <CardHeader>
                 <CardTitle>Zeitstrahl der Diskussion</CardTitle>
@@ -3128,9 +3091,40 @@ export default function DiscussionStepPage() {
                 {fazitError && <p className="text-xs text-accent2">{fazitError}</p>}
               </CardContent>
             </Card>
+	            {isHost && (
+	              <Card>
+	                <CardHeader>
+	                  <CardTitle>Veröffentlichung</CardTitle>
+	                </CardHeader>
+	                <CardContent className="space-y-3 text-sm text-muted">
+	                  <Button
+	                    onClick={handlePublishDiscussion}
+	                    disabled={discussionActionLoading}
+	                  >
+	                    Diskussion veröffentlichen
+	                  </Button>
+	                  {discussionActionError && (
+	                    <p className="text-xs text-accent2">{discussionActionError}</p>
+	                  )}
+	                  {statusMessage && <p className="text-sm text-muted">{statusMessage}</p>}
+	                </CardContent>
+	              </Card>
+	            )}
           </div>
 
 	          <div className="space-y-4">
+	            <Card>
+	              <CardHeader>
+	                <CardTitle>Werterahmen</CardTitle>
+	              </CardHeader>
+	              <CardContent className="text-sm text-muted">
+	                {selectedCatalogValues.length > 0 ? (
+	                  <p className="text-ink">{selectedCatalogValues.join(", ")}</p>
+	                ) : (
+	                  <p>Noch kein Werterahmen festgelegt.</p>
+	                )}
+	              </CardContent>
+	            </Card>
 	            {(settings.normsEnabled || sortedGroupNorms.length > 0) && (
 	              <Card>
 	                <CardHeader>
@@ -3164,58 +3158,22 @@ export default function DiscussionStepPage() {
 	                </CardContent>
 		              </Card>
 		            )}
-	            {isHost && (
+	            {isHost && currentStep !== null && (
 	              <Card>
 	                <CardHeader>
-	                  <CardTitle>Veröffentlichung</CardTitle>
+	                  <CardTitle>Leitung</CardTitle>
 	                </CardHeader>
-	                <CardContent className="space-y-3 text-sm text-muted">
-	                  <Button
-	                    onClick={handlePublishDiscussion}
-	                    disabled={discussionActionLoading}
-	                  >
-	                    Diskussion veröffentlichen
-	                  </Button>
-	                  {discussionActionError && (
-	                    <p className="text-xs text-accent2">{discussionActionError}</p>
-	                  )}
-	                  {statusMessage && <p className="text-sm text-muted">{statusMessage}</p>}
+	                <CardContent className="space-y-4 text-sm text-muted">
+	                  <HostControls
+	                    code={code}
+	                    name={name}
+	                    initialStep={currentStep}
+	                    settings={settings}
+	                    onStepChange={handleHostStepChange}
+	                  />
 	                </CardContent>
 	              </Card>
 	            )}
-	            <Card>
-	              <CardHeader>
-	                <CardTitle>Offene Fragen</CardTitle>
-	              </CardHeader>
-	              <CardContent className="space-y-3 text-sm text-muted">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span>{openDiscussionPoints.length} offene Fragen</span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowOpenQuestions((prev) => !prev)}
-                  >
-                    {showOpenQuestions ? "Ausblenden" : "Anzeigen"}
-                  </Button>
-                </div>
-                {showOpenQuestions && (
-                  <div className="space-y-2">
-                    {openDiscussionPoints.length > 0 ? (
-                      openDiscussionPoints.map((point) => (
-                        <div
-                          key={point.id}
-                          className="rounded-lg border border-border bg-bg px-3 py-2"
-                        >
-                          <p className="text-ink">{point.discussionPoint}</p>
-                        </div>
-                      ))
-                    ) : (
-                      <p>Keine offenen Fragen vorhanden.</p>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           </div>
         </div>
       ) : (
